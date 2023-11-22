@@ -645,7 +645,7 @@ where
                 self, self_,
             )
             .await
-            .map(|e| e.map(|e| DirectoryEntry::from(e))),
+            .map(|e| e.map(DirectoryEntry::from)),
         )
     }
 
@@ -1268,7 +1268,7 @@ impl UdpSocket {
         socket: &Resource<UdpSocket>,
         explicit: bool,
     ) -> wasmtime::Result<Result<(), SocketErrorCode>> {
-        let state = table.table_mut().get_mut(&socket)?;
+        let state = table.table_mut().get_mut(socket)?;
         let (new_socket, addr) = match mem::replace(state, UdpSocket::Dummy) {
             // Implicit finishes will call `stream` for sockets in the initial
             // state.
@@ -1289,7 +1289,7 @@ impl UdpSocket {
             Ok(pair) => pair,
             Err(e) => return Ok(Err(e)),
         };
-        *table.table_mut().get_mut(&socket)? = UdpSocket::Connected {
+        *table.table_mut().get_mut(socket)? = UdpSocket::Connected {
             socket: new_socket,
             incoming,
             outgoing,
@@ -2415,8 +2415,8 @@ impl From<latest::filesystem::types::DescriptorStat> for DescriptorStat {
     fn from(e: latest::filesystem::types::DescriptorStat) -> DescriptorStat {
         DescriptorStat {
             type_: e.type_.into(),
-            link_count: e.link_count.into(),
-            size: e.size.into(),
+            link_count: e.link_count,
+            size: e.size,
             data_access_timestamp: e.data_access_timestamp.map(|e| e.into()),
             data_modification_timestamp: e.data_modification_timestamp.map(|e| e.into()),
             status_change_timestamp: e.status_change_timestamp.map(|e| e.into()),
