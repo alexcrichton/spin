@@ -6227,6 +6227,7 @@ dependencies = [
  "tracing",
  "url",
  "wasmtime",
+ "wasmtime-wasi",
  "wasmtime-wasi-http",
 ]
 
