@@ -1877,6 +1877,13 @@ where
             anyhow::bail!("invalid path-with-query supplied");
         }
 
+        // Historical WASI would fill in an empty authority with a port which
+        // got just enough working to get things through. Current WASI requires
+        // the authority, though, so perform the translation manually here.
+        let authority = authority.unwrap_or_else(|| match &scheme {
+            Some(Scheme::Http) | Some(Scheme::Other(_)) => ":80".to_string(),
+            Some(Scheme::Https) | None => ":443".to_string(),
+        });
         if let Err(()) = <T as latest::http::types::HostOutgoingRequest>::set_scheme(
             self,
             borrow(),
@@ -1889,7 +1896,7 @@ where
         if let Err(()) = <T as latest::http::types::HostOutgoingRequest>::set_authority(
             self,
             borrow(),
-            authority,
+            Some(authority),
         )? {
             <T as latest::http::types::HostOutgoingRequest>::drop(self, request)?;
             anyhow::bail!("invalid authority supplied");
