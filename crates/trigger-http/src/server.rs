@@ -28,6 +28,7 @@ use tokio::{
     task,
 };
 use tracing::Instrument;
+use wasmtime_wasi::bindings::CommandIndices;
 use wasmtime_wasi_http::body::HyperOutgoingBody;
 
 use crate::{
@@ -77,7 +78,8 @@ impl<F: RuntimeFactors> HttpServer<F> {
         let component_routes = component_trigger_configs
             .iter()
             .map(|(component_id, config)| (component_id.as_str(), &config.route));
-        let (router, duplicate_routes) = Router::build("/", component_routes)?;
+        let mut duplicate_routes = Vec::new();
+        let router = Router::build("/", component_routes, Some(&mut duplicate_routes))?;
         if !duplicate_routes.is_empty() {
             tracing::error!(
                 "The following component routes are duplicates and will never be used:"
@@ -108,17 +110,18 @@ impl<F: RuntimeFactors> HttpServer<F> {
         let component_handler_types = component_trigger_configs
             .iter()
             .map(|(component_id, trigger_config)| {
+                        let component = trigger_app.get_component(component_id)?;
                 let handler_type = match &trigger_config.executor {
                     None | Some(HttpExecutorType::Http) => {
-                        let component = trigger_app.get_component(component_id)?;
-                        HandlerType::from_component(trigger_app.engine().as_ref(), component)?
+                        HandlerType::from_component(component)?
                     }
                     Some(HttpExecutorType::Wagi(wagi_config)) => {
                         anyhow::ensure!(
                             wagi_config.entrypoint == "_start",
                             "Wagi component '{component_id}' cannot use deprecated 'entrypoint' field"
                         );
-                        HandlerType::Wagi
+                        HandlerType::Wagi(CommandIndices::new(component)
+                            .context("failed to find wasi command interface for wagi executor")?)
                     }
                 };
                 Ok((component_id.clone(), handler_type))
@@ -220,7 +223,7 @@ impl<F: RuntimeFactors> HttpServer<F> {
     pub async fn handle_trigger_route(
         self: &Arc<Self>,
         mut req: Request<Body>,
-        route_match: RouteMatch,
+        route_match: RouteMatch<'_, '_>,
         server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
@@ -270,25 +273,28 @@ impl<F: RuntimeFactors> HttpServer<F> {
                         .execute(instance_builder, &route_match, req, client_addr)
                         .await
                 }
-                HandlerType::Wasi0_3 => {
+                HandlerType::Wasi0_3(_) => {
                     Wasip3HttpExecutor
                         .execute(instance_builder, &route_match, req, client_addr)
                         .await
                 }
-                HandlerType::Wasi0_2
-                | HandlerType::Wasi2023_11_10
-                | HandlerType::Wasi2023_10_18 => {
-                    WasiHttpExecutor {
-                        handler_type: *handler_type,
-                    }
-                    .execute(instance_builder, &route_match, req, client_addr)
-                    .await
+                HandlerType::Wasi0_2(_)
+                | HandlerType::Wasi2023_11_10(_)
+                | HandlerType::Wasi2023_10_18(_) => {
+                    WasiHttpExecutor { handler_type }
+                        .execute(instance_builder, &route_match, req, client_addr)
+                        .await
                 }
-                HandlerType::Wagi => unreachable!(),
+                HandlerType::Wagi(_) => unreachable!(),
             },
             HttpExecutorType::Wagi(wagi_config) => {
+                let indices = match handler_type {
+                    HandlerType::Wagi(indices) => indices,
+                    _ => unreachable!(),
+                };
                 let executor = WagiHttpExecutor {
-                    wagi_config: wagi_config.clone(),
+                    wagi_config,
+                    indices,
                 };
                 executor
                     .execute(instance_builder, &route_match, req, client_addr)
@@ -467,11 +473,11 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> anyhow::Result<()> {
 }
 
 /// An HTTP executor.
-pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
+pub(crate) trait HttpExecutor {
     fn execute<F: RuntimeFactors>(
         &self,
         instance_builder: TriggerInstanceBuilder<F>,
-        route_match: &RouteMatch,
+        route_match: &RouteMatch<'_, '_>,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> impl Future<Output = anyhow::Result<Response<Body>>>;

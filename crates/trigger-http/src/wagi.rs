@@ -7,22 +7,23 @@ use spin_factor_wasi::WasiFactor;
 use spin_factors::RuntimeFactors;
 use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
 use tracing::{instrument, Level};
+use wasmtime_wasi::bindings::CommandIndices;
 use wasmtime_wasi::pipe::MemoryOutputPipe;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
 use crate::{headers::compute_default_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
-#[derive(Clone)]
-pub struct WagiHttpExecutor {
-    pub wagi_config: WagiTriggerConfig,
+pub struct WagiHttpExecutor<'a> {
+    pub wagi_config: &'a WagiTriggerConfig,
+    pub indices: &'a CommandIndices,
 }
 
-impl HttpExecutor for WagiHttpExecutor {
+impl HttpExecutor for WagiHttpExecutor<'_> {
     #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", route_match.component_id())))]
     async fn execute<F: RuntimeFactors>(
         &self,
         mut instance_builder: TriggerInstanceBuilder<'_, F>,
-        route_match: &RouteMatch,
+        route_match: &RouteMatch<'_, '_>,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -70,7 +71,7 @@ impl HttpExecutor for WagiHttpExecutor {
         // `PATH_INFO`, or `X_FULL_URL`).
         // Note that this overrides any existing headers previously set by Wagi.
         for (keys, val) in compute_default_headers(&parts.uri, host, route_match, client_addr)? {
-            headers.insert(keys[1].to_string(), val);
+            headers.insert(keys[1].to_string(), val.into_owned());
         }
 
         let stdout = MemoryOutputPipe::new(usize::MAX);
@@ -87,7 +88,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let (instance, mut store) = instance_builder.instantiate(()).await?;
 
-        let command = wasmtime_wasi::bindings::Command::new(&mut store, &instance)?;
+        let command = self.indices.load(&mut store, &instance)?;
 
         tracing::trace!("Calling Wasm entry point");
         if let Err(()) = command

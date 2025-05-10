@@ -11,7 +11,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 env:
-  RUST_VERSION: 1.81
+  RUST_VERSION: 1.84
 
 jobs:
   build-and-sign:
@@ -26,7 +26,7 @@ jobs:
       matrix:
         config:
           - {
-              os: "ubuntu-20.04",
+              os: "ubuntu-22.04",
               arch: "amd64",
               extension: "",
               # Ubuntu 22.04 no longer ships libssl1.1, so we statically
@@ -34,9 +34,10 @@ jobs:
               extraArgs: "--features openssl/vendored",
               target: "",
               targetDir: "target/release",
+              generateManifestSchema: true,
             }
           - {
-              os: "ubuntu-20.04",
+              os: "ubuntu-22.04",
               arch: "aarch64",
               extension: "",
               extraArgs: "--features openssl/vendored --target aarch64-unknown-linux-gnu",
@@ -132,6 +133,10 @@ jobs:
             --output-signature spin.sig \
             ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }}
 
+      - name: Generate manifest schema
+        if: matrix.config.generateManifestSchema
+        run: ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} maintenance generate-manifest-schema -o manifest.schema.json
+
       - name: package release assets
         if: runner.os != 'Windows'
         shell: bash
@@ -167,6 +172,13 @@ jobs:
         with:
           name: spin-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
+      
+      - name: Upload schema as GitHub artifact
+        if: matrix.config.generateManifestSchema
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest.schema.json
+          path: manifest.schema.json
 
   checksums:
     name: generate release checksums
@@ -206,10 +218,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: download release assets
+      - name: download binaries for release assets
         uses: actions/download-artifact@v4
         with:
           pattern: spin-*
+          path: _dist
+          merge-multiple: true
+
+      - name: download schema for release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: manifest.schema.json
           path: _dist
           merge-multiple: true
 
@@ -265,7 +284,7 @@ jobs:
   ## statically linked spin binaries
   build-spin-static:
     name: Build Spin static
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     permissions:
       # cosign uses the GitHub OIDC token
       id-token: write
@@ -363,7 +382,7 @@ jobs:
           client-payload: '{"version": "${{ github.ref_name }}"}'
 
   docker:
-    runs-on: "ubuntu-20.04"
+    runs-on: "ubuntu-22.04"
     needs: [build-and-sign, build-spin-static]
     # Only build/push Docker images if this is a v* tag or if this is main/canary
     # i.e. skip for v* release branches

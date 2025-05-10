@@ -9,7 +9,7 @@ mod runtime_tests {
     test_codegen_macro::codegen_runtime_tests!(
         ignore: [
             // This test is flaky. Often gets "Connection reset by peer" errors.
-            // https://github.com/fermyon/spin/issues/2265
+            // https://github.com/spinframework/spin/issues/2265
             "outbound-postgres",
             "outbound-postgres-variable-permission"
         ]

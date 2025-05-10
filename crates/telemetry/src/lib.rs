@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 
+use anyhow::Context;
 use env::otel_logs_enabled;
 use env::otel_metrics_enabled;
 use env::otel_tracing_enabled;
@@ -47,7 +48,7 @@ pub use propagation::inject_trace_context;
 /// ```no_run
 /// spin_telemetry::metrics::monotonic_counter!(spin.metric_name = 1, metric_attribute = "value");
 /// ```
-pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
+pub fn init(spin_version: String) -> anyhow::Result<()> {
     // This layer will print all tracing library log messages to stderr.
     let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
@@ -65,13 +66,19 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
         );
 
     let otel_tracing_layer = if otel_tracing_enabled() {
-        Some(traces::otel_tracing_layer(spin_version.clone())?)
+        Some(
+            traces::otel_tracing_layer(spin_version.clone())
+                .context("failed to initialize otel tracing")?,
+        )
     } else {
         None
     };
 
     let otel_metrics_layer = if otel_metrics_enabled() {
-        Some(metrics::otel_metrics_layer(spin_version.clone())?)
+        Some(
+            metrics::otel_metrics_layer(spin_version.clone())
+                .context("failed to initialize otel metrics")?,
+        )
     } else {
         None
     };
@@ -88,21 +95,9 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     if otel_logs_enabled() {
-        logs::init_otel_logging_backend(spin_version)?;
+        logs::init_otel_logging_backend(spin_version)
+            .context("failed to initialize otel logging")?;
     }
 
-    Ok(ShutdownGuard)
-}
-
-/// An RAII implementation for connection to open telemetry services.
-///
-/// Shutdown of the open telemetry services will happen on `Drop`.
-#[must_use]
-pub struct ShutdownGuard;
-
-impl Drop for ShutdownGuard {
-    fn drop(&mut self) {
-        // Give tracer provider a chance to flush any pending traces.
-        opentelemetry::global::shutdown_tracer_provider();
-    }
+    Ok(())
 }

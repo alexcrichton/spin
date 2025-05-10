@@ -381,9 +381,14 @@ impl LocalLoader {
 
             self.cache.ensure_dirs().await?;
             let dest = self.cache.wasm_path(digest);
-            verified_download(url, digest, &dest)
-                .await
-                .with_context(|| format!("Error fetching source URL {url:?}"))?;
+            verified_download(
+                url,
+                digest,
+                &dest,
+                crate::http::DestinationConvention::ContentIndexed,
+            )
+            .await
+            .with_context(|| format!("Error fetching source URL {url:?}"))?;
             dest
         };
         file_content_ref(path)
@@ -675,14 +680,24 @@ fn explain_file_mount_source_error(e: anyhow::Error, src: &Path) -> anyhow::Erro
 }
 
 #[cfg(feature = "async-io")]
-async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<()> {
-    crate::http::verified_download(url, digest, dest)
+async fn verified_download(
+    url: &str,
+    digest: &str,
+    dest: &Path,
+    convention: crate::http::DestinationConvention,
+) -> Result<()> {
+    crate::http::verified_download(url, digest, dest, convention)
         .await
         .with_context(|| format!("Error fetching source URL {url:?}"))
 }
 
 #[cfg(not(feature = "async-io"))]
-async fn verified_download(_url: &str, _digest: &str, _dest: &Path) -> Result<()> {
+async fn verified_download(
+    _url: &str,
+    _digest: &str,
+    _dest: &Path,
+    _convention: crate::http::DestinationConvention,
+) -> Result<()> {
     panic!("async-io feature is required for downloading Wasm sources")
 }
 

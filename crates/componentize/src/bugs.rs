@@ -45,7 +45,7 @@ impl std::fmt::Display for WasiLibc377Bug {
             f,
             "This Wasm module appears to have been compiled with wasi-sdk version <19 \
             which contains a critical memory safety bug. For more information, see: \
-            https://github.com/fermyon/spin/issues/2552"
+            https://github.com/spinframework/spin/issues/2552"
         )
     }
 }

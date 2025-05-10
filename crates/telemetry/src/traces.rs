@@ -1,9 +1,7 @@
-use std::time::Duration;
-
 use anyhow::bail;
 use opentelemetry::{global, trace::TracerProvider};
 use opentelemetry_sdk::{
-    resource::{EnvResourceDetector, TelemetryResourceDetector},
+    resource::{EnvResourceDetector, ResourceDetector, TelemetryResourceDetector},
     Resource,
 };
 use tracing::Subscriber;
@@ -20,18 +18,17 @@ use crate::env::OtlpProtocol;
 pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     spin_version: String,
 ) -> anyhow::Result<impl Layer<S>> {
-    let resource = Resource::from_detectors(
-        Duration::from_secs(5),
-        vec![
+    let resource = Resource::builder()
+        .with_detectors(&[
             // Set service.name from env OTEL_SERVICE_NAME > env OTEL_RESOURCE_ATTRIBUTES > spin
             // Set service.version from Spin metadata
-            Box::new(SpinResourceDetector::new(spin_version)),
+            Box::new(SpinResourceDetector::new(spin_version)) as Box<dyn ResourceDetector>,
             // Sets fields from env OTEL_RESOURCE_ATTRIBUTES
             Box::new(EnvResourceDetector::new()),
             // Sets telemetry.sdk{name, language, version}
             Box::new(TelemetryResourceDetector),
-        ],
-    );
+        ])
+        .build();
 
     // This will configure the exporter based on the OTEL_EXPORTER_* environment variables.
     let exporter = match OtlpProtocol::traces_protocol_from_env() {
@@ -44,14 +41,10 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
 
-    let span_processor = opentelemetry_sdk::trace::BatchSpanProcessor::builder(
-        exporter,
-        opentelemetry_sdk::runtime::Tokio,
-    )
-    .build();
+    let span_processor = opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter).build();
 
-    let tracer_provider = opentelemetry_sdk::trace::TracerProvider::builder()
-        .with_config(opentelemetry_sdk::trace::Config::default().with_resource(resource))
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_resource(resource)
         .with_span_processor(span_processor)
         .build();
 

@@ -36,7 +36,9 @@ use wasmtime::{
     component::{Component, InstancePre, Linker},
     Engine, Store,
 };
-use wasmtime_wasi::{pipe::MemoryOutputPipe, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{
+    pipe::MemoryOutputPipe, IoView, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView,
+};
 
 pub use test_key_value::KeyValueReport;
 pub use test_llm::LlmReport;
@@ -261,11 +263,13 @@ impl Context {
     }
 }
 
-impl WasiView for Context {
+impl IoView for Context {
     fn table(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
+}
 
+impl WasiView for Context {
     fn ctx(&mut self) -> &mut WasiCtx {
         &mut self.wasi
     }

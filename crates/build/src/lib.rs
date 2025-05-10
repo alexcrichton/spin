@@ -64,7 +64,7 @@ fn build_components(
 
     if components_to_build.iter().all(|c| c.build.is_none()) {
         println!("None of the components have a build command.");
-        println!("For information on specifying a build command, see https://developer.fermyon.com/spin/build#setting-up-for-spin-build.");
+        println!("For information on specifying a build command, see https://spinframework.dev/build#setting-up-for-spin-build.");
         return Ok(());
     }
 

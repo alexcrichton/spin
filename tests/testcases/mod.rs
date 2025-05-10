@@ -271,7 +271,7 @@ pub fn bootstrap_smoke_test(
 ) -> anyhow::Result<TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>> {
     let mut env: TestEnvironment<()> = TestEnvironment::boot(services)?;
 
-    let template_url = template_url.unwrap_or("https://github.com/fermyon/spin");
+    let template_url = template_url.unwrap_or("https://github.com/spinframework/spin");
     let mut template_install = std::process::Command::new(spin_binary());
     template_install.args(["templates", "install", "--git", template_url, "--update"]);
     if let Some(branch) = template_branch {

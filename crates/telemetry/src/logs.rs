@@ -1,10 +1,10 @@
-use std::{ascii::escape_default, sync::OnceLock, time::Duration};
+use std::{ascii::escape_default, sync::OnceLock};
 
 use anyhow::bail;
 use opentelemetry::logs::{LogRecord, Logger, LoggerProvider};
 use opentelemetry_sdk::{
-    logs::{BatchConfigBuilder, BatchLogProcessor, Logger as SdkLogger},
-    resource::{EnvResourceDetector, TelemetryResourceDetector},
+    logs::{BatchConfigBuilder, BatchLogProcessor, SdkLogger},
+    resource::{EnvResourceDetector, ResourceDetector, TelemetryResourceDetector},
     Resource,
 };
 
@@ -68,18 +68,17 @@ fn escape_non_utf8_buf(buf: &[u8]) -> String {
 
 /// Initialize the OTel logging backend.
 pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<()> {
-    let resource = Resource::from_detectors(
-        Duration::from_secs(5),
-        vec![
+    let resource = Resource::builder()
+        .with_detectors(&[
             // Set service.name from env OTEL_SERVICE_NAME > env OTEL_RESOURCE_ATTRIBUTES > spin
             // Set service.version from Spin metadata
-            Box::new(SpinResourceDetector::new(spin_version)),
+            Box::new(SpinResourceDetector::new(spin_version)) as Box<dyn ResourceDetector>,
             // Sets fields from env OTEL_RESOURCE_ATTRIBUTES
             Box::new(EnvResourceDetector::new()),
             // Sets telemetry.sdk{name, language, version}
             Box::new(TelemetryResourceDetector),
-        ],
-    );
+        ])
+        .build();
 
     // This will configure the exporter based on the OTEL_EXPORTER_* environment variables. We
     // currently default to using the HTTP exporter but in the future we could select off of the
@@ -95,10 +94,10 @@ pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
 
-    let provider = opentelemetry_sdk::logs::LoggerProvider::builder()
+    let provider = opentelemetry_sdk::logs::SdkLoggerProvider::builder()
         .with_resource(resource)
         .with_log_processor(
-            BatchLogProcessor::builder(exporter, opentelemetry_sdk::runtime::Tokio)
+            BatchLogProcessor::builder(exporter)
                 .with_batch_config(BatchConfigBuilder::default().build())
                 .build(),
         )

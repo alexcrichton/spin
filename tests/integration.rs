@@ -301,7 +301,7 @@ mod integration_tests {
     }
 
     #[test]
-    /// Test that mounting works properly
+    /// Test a bunch of old apps for backwards compatibility
     fn legacy_apps() -> anyhow::Result<()> {
         run_test(
             "legacy-apps-test",
@@ -321,8 +321,8 @@ mod integration_tests {
                     )
                 };
 
-                test("golang", "Hello World!\n")?;
-                test("rust", "Hello World!")?;
+                test("golang", "Hello Fermyon!\n")?;
+                test("rust", "Hello, Fermyon")?;
                 test("javascript", "Hello from JS-SDK")?;
                 test("typescript", "Hello from TS-SDK")?;
                 Ok(())
@@ -527,7 +527,7 @@ mod integration_tests {
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
-    #[ignore = "https://github.com/fermyon/spin/issues/2457"]
+    #[ignore = "https://github.com/spinframework/spin/issues/2457"]
     // TODO: Check why python is not picking up the spin_sdk from site_packages
     // Currently installing to the local directory to get around it.
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
@@ -543,7 +543,7 @@ mod integration_tests {
         ]);
         http_smoke_test_template(
             "http-py",
-            Some("https://github.com/fermyon/spin-python-sdk"),
+            Some("https://github.com/spinframework/spin-python-sdk"),
             Some("v2.0"),
             &[],
             prebuild,
@@ -597,12 +597,12 @@ mod integration_tests {
         };
         http_smoke_test_template(
             "http-js",
-            Some("https://github.com/fermyon/spin-js-sdk"),
+            Some("https://github.com/spinframework/spin-js-sdk"),
             None,
             &[],
             prebuild,
             HashMap::default(),
-            "hello universe",
+            "Hello, Spin!",
         )
     }
 
@@ -617,12 +617,12 @@ mod integration_tests {
         };
         http_smoke_test_template(
             "http-ts",
-            Some("https://github.com/fermyon/spin-js-sdk"),
+            Some("https://github.com/spinframework/spin-js-sdk"),
             None,
             &[],
             prebuild,
             HashMap::default(),
-            "hello universe",
+            "Hello, Spin!",
         )
     }
 

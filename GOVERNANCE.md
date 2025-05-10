@@ -5,23 +5,26 @@ This document describes the governance of the Spin project.
 The Spin project consists of several codebases with different release cycles. These codebases include:
 
 - Core Spin:
-    - [Spin](https://github.com/fermyon/spin)
+    - [Spin](https://github.com/spinframework/spin)
 - SDKs:
-    - [Spin Python SDK](https://github.com/fermyon/spin-python-sdk)
-    - [Spin JavaScript SDK](https://github.com/fermyon/spin-js-sdk)
-    - [Spin Rust SDK](https://github.com/fermyon/spin-rust-sdk)
-    - [Spin .NET SDK](https://github.com/fermyon/spin-dotnet-sdk)
-    - [Spin Go SDK](https://github.com/fermyon/spin-go-sdk)
+    - [Spin Python SDK](https://github.com/spinframework/spin-python-sdk)
+    - [Spin JavaScript SDK](https://github.com/spinframework/spin-js-sdk)
+    - [Spin Rust SDK](https://github.com/spinframework/spin-rust-sdk)
+    - [Spin .NET SDK](https://github.com/spinframework/spin-dotnet-sdk)
+    - [Spin Go SDK](https://github.com/spinframework/spin-go-sdk)
+    - [JS Wasi Ext](https://github.com/spinframework/js-wasi-ext)
 - Plugins:
-    - [Spin Plugins Index Repository](https://github.com/fermyon/spin-plugins)
+    - [Spin Plugins Index Repository](https://github.com/spinframework/spin-plugins)
     - [Fermyon Platform Plugin](https://github.com/fermyon/platform-plugin)
-    - [Spin Test Plugin](https://github.com/fermyon/spin-test)
+    - [Spin Test Plugin](https://github.com/spinframework/spin-test)
+    - [Spin Deps Plugin](https://github.com/spinframework/spin-deps-plugin)
 - Triggers:
-    - [Spin Command Trigger](https://github.com/fermyon/spin-trigger-command)
-    - [Spin SQS Trigger](https://github.com/fermyon/spin-trigger-sqs)
-    - [Spin Cron Trigger](https://github.com/fermyon/spin-trigger-cron)
+    - [Spin Command Trigger](https://github.com/spinframework/spin-trigger-command)
+    - [Spin SQS Trigger](https://github.com/spinframework/spin-trigger-sqs)
+    - [Spin Cron Trigger](https://github.com/spinframework/spin-trigger-cron)
 - Other
-    - [Spin Fileserver](https://github.com/fermyon/spin-fileserver)
+    - [Spin Fileserver](https://github.com/spinframework/spin-fileserver)
+    - [Spin Redirect](https://github.com/spinframework/spin-redirect)
 
 Each repository is subject to the same overall governance model, but has different teams of people (“maintainers”) with permissions and access to the repository. This is meant to increase diversity of maintainers in the Spin project and also increases the velocity of code changes. Major changes and features to the project including additions to the repository list above are to be proposed through the [Spin Improvement Proposal](docs/content/sips/index.md) process.
 
@@ -39,11 +42,11 @@ Changes to project maintainers use the following:
 - Project maintainers MUST remain active on the project. If they are unresponsive for > 3 months, they will lose project maintainer-ship, unless the remaining project maintainers of the given project and the Spin Governance Committee agree to extend the period to be greater than 3 months.
 - New maintainers MUST be nominated by existing maintainers. Maintainers are to discuss and agree in a private setting adding a new maintainer. Once a decision has been made, a maintainer may be added to the project via a pull request to the relevant MAINTAINERS.md file.
 - A maintainer may be removed for a [code of conduct](CODE_OF_CONDUCT.md) violation by the Spin Governance Committee. Code of conduct violations may be submitted to any member(s) on the Spin Governance Committee by email. See email information on MAINTAINERS.md.
-- When a project has no active maintainers, the maintainers of the [fermyon/spin Github repo](https://github.com/fermyon/spin) become responsible for it, and may archive the project, or find new maintainers.
+- When a project has no active maintainers, the maintainers of the [spinframework/spin Github repo](https://github.com/spinframework/spin) become responsible for it, and may archive the project, or find new maintainers.
 
 ## Spin Governance Committee
 
-The project maintainers for [github.com/fermyon/spin](http://github.com/fermyon/spin) also serve as the Spin Governance Committee and have the following additional responsibilities:
+The project maintainers for [github.com/spinframework/spin](https://github.com/spinframework/spin) also serve as the Spin Governance Committee and have the following additional responsibilities:
 
 - Maintaining the mission, vision, values, and scope of the project
 - Refining this governance document

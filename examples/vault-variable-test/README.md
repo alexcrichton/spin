@@ -1,4 +1,4 @@
-This example relates to the [Vault Application Variable Provider Example](https://developer.fermyon.com/spin/v2/dynamic-configuration#vault-application-variable-provider-example) documentation.
+This example relates to the [Vault Application Variable Provider Example](https://spinframework.dev/dynamic-configuration#vault-application-variable-provider-example) documentation.
 
 You are best to visit the above link for more information, but for convenience, below is the steps taken to set up the Vault side of the application:
 

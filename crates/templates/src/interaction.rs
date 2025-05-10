@@ -8,7 +8,7 @@ use crate::{
 
 use anyhow::anyhow;
 // use console::style;
-use dialoguer::{Confirm, Input};
+use dialoguer::{Confirm, Input, Select};
 
 pub(crate) trait InteractionStrategy {
     fn allow_generate_into(&self, target_dir: &Path) -> Cancellable<(), anyhow::Error>;
@@ -111,7 +111,10 @@ pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> 
 
     loop {
         let input = match parameter.data_type() {
-            TemplateParameterDataType::String(_) => ask_free_text(prompt, default_value),
+            TemplateParameterDataType::String(constraints) => match &constraints.allowed_values {
+                Some(allowed_values) => ask_choice(prompt, default_value, allowed_values),
+                None => ask_free_text(prompt, default_value),
+            },
         };
 
         match input {
@@ -136,6 +139,21 @@ fn ask_free_text(prompt: &str, default_value: &Option<String>) -> anyhow::Result
     }
     let result = input.interact_text()?;
     Ok(result)
+}
+
+fn ask_choice(
+    prompt: &str,
+    default_value: &Option<String>,
+    allowed_values: &[String],
+) -> anyhow::Result<String> {
+    let mut select = Select::new().with_prompt(prompt).items(allowed_values);
+    if let Some(s) = default_value {
+        if let Some(default_index) = allowed_values.iter().position(|item| item == s) {
+            select = select.default(default_index);
+        }
+    }
+    let selected_index = select.interact()?;
+    Ok(allowed_values[selected_index].clone())
 }
 
 fn is_directory_empty(path: &Path) -> bool {

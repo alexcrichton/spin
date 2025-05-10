@@ -5,4 +5,4 @@ These intrinsics are missing for `aarch64` in `gcc < 10.3`, while `cross-rs` shi
 
 The code in this folder does a feature check and patches the `arm_neon.h` header with polyfills if the functions are missing.
 
-See https://github.com/fermyon/spin/issues/1786 for the upstream issue.
+See https://github.com/spinframework/spin/issues/1786 for the upstream issue.

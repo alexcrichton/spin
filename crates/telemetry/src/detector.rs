@@ -1,4 +1,4 @@
-use std::{env, time::Duration};
+use std::env;
 
 use opentelemetry::{Key, KeyValue, Value};
 use opentelemetry_sdk::{
@@ -28,20 +28,22 @@ impl SpinResourceDetector {
 }
 
 impl ResourceDetector for SpinResourceDetector {
-    fn detect(&self, _timeout: Duration) -> Resource {
+    fn detect(&self) -> Resource {
         let service_name = env::var(OTEL_SERVICE_NAME)
             .ok()
             .filter(|s| !s.is_empty())
             .map(Value::from)
             .or_else(|| {
                 EnvResourceDetector::new()
-                    .detect(Duration::from_secs(0))
-                    .get(Key::new("service.name"))
+                    .detect()
+                    .get(&Key::new("service.name"))
             })
             .unwrap_or_else(|| "spin".into());
-        Resource::new(vec![
-            KeyValue::new("service.name", service_name),
-            KeyValue::new("service.version", self.spin_version.clone()),
-        ])
+        Resource::builder()
+            .with_attributes(vec![
+                KeyValue::new("service.name", service_name),
+                KeyValue::new("service.version", self.spin_version.clone()),
+            ])
+            .build()
     }
 }

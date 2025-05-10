@@ -280,7 +280,7 @@ impl Upgrade {
             .filter(|installed| {
                 catalogue_plugins
                     .iter()
-                    .any(|catalogue| installed.manifest == catalogue.manifest)
+                    .any(|catalogue| installed.manifest.name() == catalogue.manifest.name())
             })
             .collect();
 

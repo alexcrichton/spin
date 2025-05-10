@@ -103,6 +103,9 @@ impl<T: Read + Send + Sync + 'static> InputStream for PipeReadStream<T> {
             .unwrap()
             .read(&mut self.buffer[..size])
             .map_err(|e| StreamError::LastOperationFailed(anyhow::anyhow!(e)))?;
+        if count == 0 {
+            return Err(wasmtime_wasi::StreamError::Closed);
+        }
 
         Ok(bytes::Bytes::copy_from_slice(&self.buffer[..count]))
     }

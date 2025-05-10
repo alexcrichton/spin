@@ -1,9 +1,7 @@
 use spin_factors::anyhow::{self, Result};
 use std::mem;
 use wasmtime::component::{Linker, Resource};
-use wasmtime_wasi::{
-    DynInputStream, DynOutputStream, DynPollable, IoView, TrappableError, WasiImpl, WasiView,
-};
+use wasmtime_wasi::{DynPollable, IoView, TrappableError, WasiImpl, WasiView};
 
 mod latest {
     pub use wasmtime_wasi::bindings::*;
@@ -711,12 +709,12 @@ where
 
     fn subscribe(
         &mut self,
-        self_: Resource<DynInputStream>,
+        self_: Resource<InputStream>,
     ) -> wasmtime::Result<Resource<DynPollable>> {
         latest::io::streams::HostInputStream::subscribe(&mut self.0, self_)
     }
 
-    async fn drop(&mut self, rep: Resource<DynInputStream>) -> wasmtime::Result<()> {
+    async fn drop(&mut self, rep: Resource<InputStream>) -> wasmtime::Result<()> {
         latest::io::streams::HostInputStream::drop(&mut self.0, rep).await
     }
 }
@@ -775,7 +773,7 @@ where
 
     fn subscribe(
         &mut self,
-        self_: Resource<DynOutputStream>,
+        self_: Resource<OutputStream>,
     ) -> wasmtime::Result<Resource<DynPollable>> {
         latest::io::streams::HostOutputStream::subscribe(&mut self.0, self_)
     }

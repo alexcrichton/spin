@@ -7,6 +7,7 @@
 #![deny(missing_docs)]
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -36,23 +37,28 @@ pub type ValidatorFn = dyn Fn(&App, &[&str]) -> anyhow::Result<()>;
 /// An `App` holds loaded configuration for a Spin application.
 #[derive(Debug, Clone)]
 pub struct App {
-    id: String,
-    locked: LockedApp,
+    id: Arc<str>,
+    locked: Arc<LockedApp>,
 }
 
 impl App {
     /// Returns a new app for the given runtime-specific identifier and locked
     /// app.
-    pub fn new(id: impl Into<String>, locked: LockedApp) -> Self {
+    pub fn new(id: impl Into<Arc<str>>, locked: LockedApp) -> Self {
         Self {
             id: id.into(),
-            locked,
+            locked: Arc::new(locked),
         }
     }
 
     /// Returns a runtime-specific identifier for this app.
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    /// Returns a runtime-specific identifier for this app.
+    pub fn id_shared(&self) -> Arc<str> {
+        self.id.clone()
     }
 
     /// Deserializes typed metadata for this app.
@@ -170,7 +176,7 @@ impl App {
     /// Scrubs the locked app to only contain the given list of components
     /// Introspects the LockedApp to find and selectively retain the triggers that correspond to those components
     fn retain_components(
-        mut self,
+        self,
         retained_components: &[&str],
         validators: &[&ValidatorFn],
     ) -> Result<LockedApp> {
@@ -187,11 +193,10 @@ impl App {
                 _ => None,
             })
             .collect();
-        self.locked
-            .components
-            .retain(|c| component_ids.contains(&c.id));
-        self.locked.triggers.retain(|t| trigger_ids.contains(&t.id));
-        Ok(self.locked)
+        let mut locked = Arc::unwrap_or_clone(self.locked);
+        locked.components.retain(|c| component_ids.contains(&c.id));
+        locked.triggers.retain(|t| trigger_ids.contains(&t.id));
+        Ok(locked)
     }
 
     /// Validates that all components specified to be retained actually exist in the app

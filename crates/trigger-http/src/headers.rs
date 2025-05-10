@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, str, str::FromStr};
+use std::{
+    borrow::Cow,
+    net::SocketAddr,
+    str::{self, FromStr},
+};
 
 use anyhow::Result;
 use http::Uri;
@@ -21,23 +25,27 @@ pub const RAW_COMPONENT_ROUTE: [&str; 2] = ["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_C
 pub const BASE_PATH: [&str; 2] = ["SPIN_BASE_PATH", "X_BASE_PATH"];
 pub const CLIENT_ADDR: [&str; 2] = ["SPIN_CLIENT_ADDR", "X_CLIENT_ADDR"];
 
-pub fn compute_default_headers(
+// Header key/value pairs that use copy on write to avoid allocation
+pub type HeaderPair<'a> = ([Cow<'static, str>; 2], Cow<'a, str>);
+
+/// Compute the default headers to be passed to the component.
+pub fn compute_default_headers<'a>(
     uri: &Uri,
     host: &str,
-    route_match: &RouteMatch,
+    route_match: &'a RouteMatch,
     client_addr: SocketAddr,
-) -> anyhow::Result<Vec<([String; 2], String)>> {
-    fn owned(strs: &[&'static str; 2]) -> [String; 2] {
-        [strs[0].to_owned(), strs[1].to_owned()]
+) -> anyhow::Result<Vec<HeaderPair<'a>>> {
+    fn owned(strs: &[&'static str; 2]) -> [Cow<'static, str>; 2] {
+        [strs[0].into(), strs[1].into()]
     }
 
-    let owned_full_url: [String; 2] = owned(&FULL_URL);
-    let owned_path_info: [String; 2] = owned(&PATH_INFO);
-    let owned_matched_route: [String; 2] = owned(&MATCHED_ROUTE);
-    let owned_component_route: [String; 2] = owned(&COMPONENT_ROUTE);
-    let owned_raw_component_route: [String; 2] = owned(&RAW_COMPONENT_ROUTE);
-    let owned_base_path: [String; 2] = owned(&BASE_PATH);
-    let owned_client_addr: [String; 2] = owned(&CLIENT_ADDR);
+    let owned_full_url = owned(&FULL_URL);
+    let owned_path_info = owned(&PATH_INFO);
+    let owned_matched_route = owned(&MATCHED_ROUTE);
+    let owned_component_route = owned(&COMPONENT_ROUTE);
+    let owned_raw_component_route = owned(&RAW_COMPONENT_ROUTE);
+    let owned_base_path = owned(&BASE_PATH);
+    let owned_client_addr = owned(&CLIENT_ADDR);
 
     let mut res = vec![];
     let abs_path = uri
@@ -52,21 +60,21 @@ pub fn compute_default_headers(
     let full_url = format!("{}://{}{}", scheme, host, abs_path);
 
     res.push((owned_path_info, path_info));
-    res.push((owned_full_url, full_url));
-    res.push((owned_matched_route, route_match.based_route().to_string()));
+    res.push((owned_full_url, full_url.into()));
+    res.push((owned_matched_route, route_match.based_route().into()));
 
-    res.push((owned_base_path, "/".to_string()));
+    res.push((owned_base_path, "/".into()));
+    res.push((owned_raw_component_route, route_match.raw_route().into()));
     res.push((
-        owned_raw_component_route,
-        route_match.raw_route().to_string(),
+        owned_component_route,
+        route_match.raw_route_or_prefix().into(),
     ));
-    res.push((owned_component_route, route_match.raw_route_or_prefix()));
-    res.push((owned_client_addr, client_addr.to_string()));
+    res.push((owned_client_addr, client_addr.to_string().into()));
 
     for (wild_name, wild_value) in route_match.named_wildcards() {
-        let wild_header = format!("SPIN_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
-        let wild_wagi_header = format!("X_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
-        res.push(([wild_header, wild_wagi_header], wild_value.clone()));
+        let wild_header = format!("SPIN_PATH_MATCH_{}", wild_name.to_ascii_uppercase()).into();
+        let wild_wagi_header = format!("X_PATH_MATCH_{}", wild_name.to_ascii_uppercase()).into();
+        res.push(([wild_header, wild_wagi_header], wild_value.into()));
     }
 
     Ok(res)
@@ -110,7 +118,7 @@ pub fn prepare_request_headers(
     // In the future, we might want to have this information in a context
     // object as opposed to headers.
     for (keys, val) in compute_default_headers(req.uri(), host, route_match, client_addr)? {
-        res.push((prepare_header_key(&keys[0]), val));
+        res.push((prepare_header_key(&keys[0]), val.into_owned()));
     }
 
     Ok(res)
@@ -138,6 +146,8 @@ fn prepare_header_key(key: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use super::*;
     use anyhow::Result;
     use spin_http::routes::Router;
@@ -177,7 +187,7 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let (router, _) = Router::build("/", [("DUMMY", &trigger_route.into())])?;
+        let router = Router::build("/", [("DUMMY", &trigger_route.into())], None)?;
         let route_match = router.route("/foo/bar")?;
 
         let default_headers = compute_default_headers(req.uri(), host, &route_match, client_addr)?;
@@ -233,7 +243,7 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let (router, _) = Router::build("/", [("DUMMY", &trigger_route.into())])?;
+        let router = Router::build("/", [("DUMMY", &trigger_route.into())], None)?;
         let route_match = router.route("/foo/42/bar")?;
 
         let default_headers = compute_default_headers(req.uri(), host, &route_match, client_addr)?;
@@ -318,11 +328,14 @@ mod tests {
         assert!(req.headers().get("Host").is_some());
     }
 
-    fn search(keys: &[&str; 2], headers: &[([String; 2], String)]) -> Option<String> {
+    fn search(
+        keys: &[&str; 2],
+        headers: &[([Cow<'static, str>; 2], Cow<'_, str>)],
+    ) -> Option<String> {
         let mut res: Option<String> = None;
         for (k, v) in headers {
             if k[0] == keys[0] && k[1] == keys[1] {
-                res = Some(v.clone());
+                res = Some(v.as_ref().to_owned());
             }
         }
 

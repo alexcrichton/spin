@@ -24,7 +24,7 @@ impl HttpExecutor for SpinHttpExecutor {
     async fn execute<F: RuntimeFactors>(
         &self,
         instance_builder: TriggerInstanceBuilder<'_, F>,
-        route_match: &RouteMatch,
+        route_match: &RouteMatch<'_, '_>,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -61,7 +61,7 @@ impl HttpExecutor for SpinHttpExecutor {
 
         // Preparing to remove the params field. We are leaving it in place for now
         // to avoid breaking the ABI, but no longer pass or accept values in it.
-        // https://github.com/fermyon/spin/issues/663
+        // https://github.com/spinframework/spin/issues/663
         let params = vec![];
 
         let uri = match parts.uri.path_and_query() {

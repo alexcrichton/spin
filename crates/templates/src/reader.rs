@@ -86,6 +86,7 @@ pub(crate) struct RawParameter {
     #[serde(rename = "default")]
     pub default_value: Option<String>,
     pub pattern: Option<String>,
+    pub allowed_values: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

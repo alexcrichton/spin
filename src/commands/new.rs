@@ -305,10 +305,15 @@ async fn prompt_template(
     variant: &TemplateVariantInfo,
     tags: &[String],
 ) -> anyhow::Result<Option<Template>> {
-    let mut templates = match list_or_install_templates(template_manager, tags).await? {
+    let templates = match list_or_install_templates(template_manager, tags).await? {
         Some(t) => t,
         None => return Ok(None),
     };
+    let mut templates = templates
+        .into_iter()
+        .filter(|t| t.supports_variant(variant))
+        .collect::<Vec<_>>();
+
     if templates.is_empty() {
         if tags.len() == 1 {
             bail!("No templates matched '{}'", tags[0]);
@@ -319,7 +324,6 @@ async fn prompt_template(
 
     let opts = templates
         .iter()
-        .filter(|t| t.supports_variant(variant))
         .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))
         .collect::<Vec<_>>();
     let noun = variant.prompt_noun();

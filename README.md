@@ -4,8 +4,9 @@
     <img alt="spin logo" src="./docs/static/image/logo.png" width="300" height="128">
   </picture>
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
-      <a href="https://github.com/fermyon/spin/actions/workflows/build.yml"><img src="https://github.com/fermyon/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
-      <a href="https://discord.gg/eGN8saYqCk"><img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord"></a>
+      <a href="https://github.com/spinframework/spin/actions/workflows/build.yml"><img src="https://github.com/spinframework/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
+      <a href="https://cloud-native.slack.com/archives/C089NJ9G1V0"><img alt="Slack" src="https://img.shields.io/badge/slack-spin-green.svg?logo=slack"></a>
+      <a href="https://www.bestpractices.dev/projects/10373"><img src="https://www.bestpractices.dev/projects/10373/badge"></a>
 </div>
 
 ## What is Spin?
@@ -23,19 +24,19 @@ applications and how to get started.
 
 ## Getting started
 
-See the [Install Spin](https://developer.fermyon.com/spin/install) page of the [Spin documentation](https://developer.fermyon.com/spin/index) for a detailed
+See the [Install Spin](https://spinframework.dev/install) page of the [Spin documentation](https://spinframework.dev) for a detailed
 guide on installing and configuring Spin, but in short run the following commands:
 ```bash
-curl -fsSL https://developer.fermyon.com/downloads/install.sh | bash
+curl -fsSL https://spinframework.dev/downloads/install.sh | bash
 sudo mv ./spin /usr/local/bin/spin
 ```
 
-Alternatively, you could [build Spin from source](https://developer.fermyon.com/spin/contributing/).
+Alternatively, you could [build Spin from source](https://spinframework.dev/contributing-spin).
 
-To get started writing apps, follow the [quickstart guide](https://developer.fermyon.com/spin/quickstart/),
+To get started writing apps, follow the [quickstart guide](https://spinframework.dev/quickstart/),
 and then follow the
-[Rust](https://developer.fermyon.com/spin/rust-components/), [JavaScript](https://developer.fermyon.com/spin/javascript-components), [Python](https://developer.fermyon.com/spin/python-components), or [Go](https://developer.fermyon.com/spin/go-components/)
-language guides, and the [guide on writing Spin applications](https://developer.fermyon.com/spin/configuration/).
+[Rust](https://spinframework.dev/rust-components/), [JavaScript](https://spinframework.dev/javascript-components), [Python](https://spinframework.dev/python-components), or [Go](https://spinframework.dev/go-components/)
+language guides, and the [guide on writing Spin applications](https://spinframework.dev/writing-apps/).
 
 ## Usage
 Below is an example of using the `spin` CLI to create a new Spin application.  To run the example you will need to install the `wasm32-wasip1` target for Rust.
@@ -80,30 +81,28 @@ date: Sun, 02 Mar 2025 20:09:11 GMT
 Hello World!
 ```
 
-You can make the app do more by editting the `src/lib.rs` file in the `hello-rust` directory using your favorite editor or IDE. To learn more about writing Spin applications see [Writing Applications](https://developer.fermyon.com/spin/writing-apps) in the Spin documentation.  To learn how to publish and distribute your application see the [Publishing and Distribution](https://developer.fermyon.com/spin/distributing-apps) guide in the Spin documentation.
-
-For more information on the cli commands and subcommands see the [CLI Reference](https://developer.fermyon.com/common/cli-reference).
+You can make the app do more by editting the `src/lib.rs` file in the `hello-rust` directory using your favorite editor or IDE. To learn more about writing Spin applications see [Writing Applications](https://spinframework.dev/writing-apps) in the Spin documentation.  To learn how to publish and distribute your application see the [Publishing and Distribution](https://spinframework.dev/distributing-apps) guide in the Spin documentation.
 
 ## Language Support for Spin Features
 
-The table below summarizes the [feature support](https://developer.fermyon.com/spin/language-support-overview) in each of the language SDKs.
+The table below summarizes the [feature support](https://spinframework.dev/language-support-overview) in each of the language SDKs.
 
 | Feature | Rust SDK Supported? | TypeScript SDK Supported? | Python SDK Supported? | Tiny Go SDK Supported? | C# SDK Supported? |
 |-----|-----|-----|-----|-----|-----|
 | **Triggers** |
-| [HTTP](https://developer.fermyon.com/spin/http-trigger) | Supported | Supported | Supported | Supported | Supported |
-| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported | Supported | Supported | Supported | Not Supported |
+| [HTTP](https://spinframework.dev/http-trigger) | Supported | Supported | Supported | Supported | Supported |
+| [Redis](https://spinframework.dev/redis-trigger) | Supported | Supported | Supported | Supported | Not Supported |
 | **APIs** |
-| [Outbound HTTP](https://developer.fermyon.com/spin/rust-components.md#sending-outbound-http-requests) | Supported | Supported | Supported | Supported | Supported |
-| [Configuration Variables](https://developer.fermyon.com/spin/variables) | Supported | Supported | Supported | Supported | Supported |
-| [Key Value Storage](https://developer.fermyon.com/spin/kv-store-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [SQLite Storage](https://developer.fermyon.com/spin/sqlite-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Not Supported |
-| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Supported |
-| [Outbound Redis](https://developer.fermyon.com/spin/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
-| [Serverless AI](https://developer.fermyon.com/spin/serverless-ai-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
+| [Outbound HTTP](https://spinframework.dev/rust-components.md#sending-outbound-http-requests) | Supported | Supported | Supported | Supported | Supported |
+| [Configuration Variables](https://spinframework.dev/variables) | Supported | Supported | Supported | Supported | Supported |
+| [Key Value Storage](https://spinframework.dev/kv-store-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
+| [SQLite Storage](https://spinframework.dev/sqlite-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
+| [MySQL](https://spinframework.dev/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Not Supported |
+| [PostgreSQL](https://spinframework.dev/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Supported |
+| [Outbound Redis](https://spinframework.dev/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
+| [Serverless AI](https://spinframework.dev/serverless-ai-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
 | **Extensibility** |
-| [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
+| [Authoring Custom Triggers](https://spinframework.dev/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
 
 ## Getting Involved and Contributing
 
@@ -113,12 +112,11 @@ Each Monday at 2:30om UTC and 9:00pm UTC (alternating), we meet to discuss Spin 
 
 The [Spin Project Meeting agenda](https://docs.google.com/document/d/1EG392gb8Eg-1ZEPDy18pgFZvMMrdAEybpCSufFXoe00/edit?usp=sharing) is a public document. The document contains a rolling agenda with the date and time of each meeting, the Zoom link, and topics of discussion for the day. You will also find the meeting minutes for each meeting and the link to the recording. If you have something you would like to demo or discuss at the project meeting, we encourage you to add it to the agenda.
 
-You can find the contributing guide [here](https://developer.fermyon.com/spin/contributing).
-
-Fermyon also hosts a Discord server, where we discuss anything Spin: [Discord server](https://discord.gg/eGN8saYqCk).
+You can find the contributing guide [here](https://spinframework.dev/contributing-spin).
 
 ## Stay in Touch
+
 Follow us on Twitter: [@spinframework](https://twitter.com/spinframework)
 
-You can join the Spin community in our [Discord server](https://discord.gg/eGN8saYqCk) where you can ask questions, get help, and show off the cool things you are doing with Spin!
+You can join the Spin community in the [Spin CNCF Slack channel](https://cloud-native.slack.com/archives/C089NJ9G1V0) where you can ask questions, get help, and show off the cool things you are doing with Spin!
 

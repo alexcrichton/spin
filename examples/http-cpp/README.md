@@ -5,7 +5,7 @@ trigger](https://spin.fermyon.dev/http-trigger) implemented in C++.
 
 ### Building and Running
 
-First install [Rust](https://rustup.rs) and [Spin](https://github.com/fermyon/spin).
+First install [Rust](https://rustup.rs) and [Spin](https://github.com/spinframework/spin).
 
 Next, grab the latest [WASI SDK](https://github.com/WebAssembly/wasi-sdk)
 release and place it at /opt/wasi-sdk on your filesystem.  For Linux, this would

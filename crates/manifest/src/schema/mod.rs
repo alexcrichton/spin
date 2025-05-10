@@ -10,6 +10,7 @@ pub mod v2;
 // Types common between manifest versions. Re-exported from versioned modules
 // to make them easier to split if necessary.
 pub(crate) mod common;
+mod json_schema;
 
 #[derive(Deserialize)]
 pub(crate) struct VersionProbe {

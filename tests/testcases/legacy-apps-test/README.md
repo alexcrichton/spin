@@ -18,8 +18,8 @@ The `wasm` files are built using `spin build` and copied over here for validatio
 ```
 spin plugin update
 spin plugin install js2wasm --yes
-spin templates install --git https://github.com/fermyon/spin
-spin templates install --git https://github.com/fermyon/spin-js-sdk
+spin templates install --git https://github.com/spinframework/spin
+spin templates install --git https://github.com/spinframework/spin-js-sdk
 ```
 
 ### Create app using template and generate wasm modules

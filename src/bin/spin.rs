@@ -2,6 +2,7 @@ use anyhow::{Context, Error};
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use lazy_static::lazy_static;
 use spin_cli::commands::external::predefined_externals;
+use spin_cli::commands::maintenance::MaintenanceCommands;
 use spin_cli::commands::{
     build::BuildCommand,
     cloud::{DeployCommand, LoginCommand},
@@ -42,8 +43,7 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let _telemetry_guard =
-        spin_telemetry::init(VERSION.to_string()).context("Failed to initialize telemetry")?;
+    spin_telemetry::init(VERSION.to_string()).context("Failed to initialize telemetry")?;
 
     let plugin_help_entries = plugin_help_entries();
 
@@ -136,6 +136,8 @@ enum SpinApp {
     #[clap(alias = "w")]
     Watch(WatchCommand),
     Doctor(DoctorCommand),
+    #[clap(subcommand, hide = true)]
+    Maintenance(MaintenanceCommands),
 }
 
 #[derive(Subcommand)]
@@ -165,6 +167,7 @@ impl SpinApp {
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
+            Self::Maintenance(cmd) => cmd.run(SpinApp::command()).await,
         }
     }
 }

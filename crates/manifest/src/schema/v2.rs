@@ -1,18 +1,21 @@
 use anyhow::Context;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use spin_serde::{DependencyName, DependencyPackageName, FixedVersion, LowerSnakeId};
 pub use spin_serde::{KebabId, SnakeId};
 use std::path::PathBuf;
 
 pub use super::common::{ComponentBuildConfig, ComponentSource, Variable, WasiFilesMount};
+use super::json_schema;
 
 pub(crate) type Map<K, V> = indexmap::IndexMap<K, V>;
 
 /// App manifest
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AppManifest {
     /// `spin_manifest_version = 2`
+    #[schemars(with = "usize", range = (min = 2, max = 2))]
     pub spin_manifest_version: FixedVersion<2>,
     /// `[application]`
     pub application: AppDetails,
@@ -21,6 +24,7 @@ pub struct AppManifest {
     pub variables: Map<LowerSnakeId, Variable>,
     /// `[[trigger.<type>]]`
     #[serde(rename = "trigger")]
+    #[schemars(with = "json_schema::TriggerSchema")]
     pub triggers: Map<String, Vec<Trigger>>,
     /// `[component.<id>]`
     #[serde(rename = "component")]
@@ -42,7 +46,7 @@ impl AppManifest {
 }
 
 /// App details
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AppDetails {
     /// `name = "my-app"`
@@ -58,9 +62,11 @@ pub struct AppDetails {
     pub authors: Vec<String>,
     /// `[application.triggers.<type>]`
     #[serde(rename = "trigger", default, skip_serializing_if = "Map::is_empty")]
+    #[schemars(schema_with = "json_schema::map_of_toml_tables")]
     pub trigger_global_configs: Map<String, toml::Table>,
     /// Settings for custom tools or plugins. Spin ignores this field.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[schemars(schema_with = "json_schema::map_of_toml_tables")]
     pub tool: Map<String, toml::Table>,
 }
 
@@ -82,12 +88,16 @@ pub struct Trigger {
 }
 
 /// One or many `ComponentSpec`(s)
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
-pub struct OneOrManyComponentSpecs(#[serde(with = "one_or_many")] pub Vec<ComponentSpec>);
+pub struct OneOrManyComponentSpecs(
+    #[serde(with = "one_or_many")]
+    #[schemars(schema_with = "json_schema::one_or_many::<ComponentSpec>")]
+    pub Vec<ComponentSpec>,
+);
 
 /// Component reference or inline definition
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, untagged, try_from = "toml::Value")]
 pub enum ComponentSpec {
     /// `"component-id"`
@@ -111,7 +121,7 @@ impl TryFrom<toml::Value> for ComponentSpec {
 }
 
 /// Component dependency
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum ComponentDependency {
     /// `... = ">= 0.1.0"`
@@ -147,7 +157,7 @@ pub enum ComponentDependency {
 }
 
 /// Component definition
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Component {
     /// `source = ...`
@@ -169,6 +179,7 @@ pub struct Component {
     pub exclude_files: Vec<String>,
     /// `allowed_http_hosts = ["example.com"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[deprecated]
     pub allowed_http_hosts: Vec<String>,
     /// `allowed_outbound_hosts = ["redis://myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -179,6 +190,7 @@ pub struct Component {
         with = "kebab_or_snake_case",
         skip_serializing_if = "Vec::is_empty"
     )]
+    #[schemars(with = "Vec<String>")]
     pub key_value_stores: Vec<String>,
     /// `sqlite_databases = ["default", "my-database"]`
     #[serde(
@@ -186,6 +198,7 @@ pub struct Component {
         with = "kebab_or_snake_case",
         skip_serializing_if = "Vec::is_empty"
     )]
+    #[schemars(with = "Vec<String>")]
     pub sqlite_databases: Vec<String>,
     /// `ai_models = ["llama2-chat"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -195,6 +208,7 @@ pub struct Component {
     pub build: Option<ComponentBuildConfig>,
     /// Settings for custom tools or plugins. Spin ignores this field.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[schemars(schema_with = "json_schema::map_of_toml_tables")]
     pub tool: Map<String, toml::Table>,
     /// If true, allow dependencies to inherit configuration.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -205,7 +219,7 @@ pub struct Component {
 }
 
 /// Component dependencies
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
 pub struct ComponentDependencies {
     /// `dependencies = { "foo:bar" = ">= 0.1.0" }`
@@ -377,6 +391,7 @@ impl Component {
     /// Combine `allowed_outbound_hosts` with the deprecated `allowed_http_hosts` into
     /// one array all normalized to the syntax of `allowed_outbound_hosts`.
     pub fn normalized_allowed_outbound_hosts(&self) -> anyhow::Result<Vec<String>> {
+        #[allow(deprecated)]
         let normalized =
             crate::compat::convert_allowed_http_to_allowed_hosts(&self.allowed_http_hosts, false)?;
         if !normalized.is_empty() {
@@ -531,6 +546,7 @@ mod tests {
     }
 
     fn get_test_component_with_labels(labels: Vec<String>) -> Component {
+        #[allow(deprecated)]
         Component {
             source: ComponentSource::Local("dummy".to_string()),
             description: "".to_string(),

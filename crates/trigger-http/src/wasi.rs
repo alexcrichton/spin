@@ -1,11 +1,12 @@
+use std::io::IsTerminal;
 use std::net::SocketAddr;
 
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
 use hyper::{Request, Response};
-use spin_factor_outbound_http::wasi_2023_10_18::exports::wasi::http::incoming_handler as incoming_handler2023_10_18;
-use spin_factor_outbound_http::wasi_2023_11_10::exports::wasi::http::incoming_handler as incoming_handler2023_11_10;
+use spin_factor_outbound_http::wasi_2023_10_18::Proxy as Proxy2023_10_18;
+use spin_factor_outbound_http::wasi_2023_11_10::Proxy as Proxy2023_11_10;
 use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
 use spin_http::trigger::HandlerType;
@@ -18,17 +19,16 @@ use wasmtime_wasi_http::{bindings::Proxy, body::HyperIncomingBody as Body, WasiH
 use crate::{headers::prepare_request_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
 /// An [`HttpExecutor`] that uses the `wasi:http/incoming-handler` interface.
-#[derive(Clone)]
-pub struct WasiHttpExecutor {
-    pub handler_type: HandlerType,
+pub struct WasiHttpExecutor<'a> {
+    pub handler_type: &'a HandlerType,
 }
 
-impl HttpExecutor for WasiHttpExecutor {
+impl HttpExecutor for WasiHttpExecutor<'_> {
     #[instrument(name = "spin_trigger_http.execute_wasm", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", route_match.component_id())))]
     async fn execute<F: RuntimeFactors>(
         &self,
         instance_builder: TriggerInstanceBuilder<'_, F>,
-        route_match: &RouteMatch,
+        route_match: &RouteMatch<'_, '_>,
         mut req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -76,27 +76,23 @@ impl HttpExecutor for WasiHttpExecutor {
 
         enum Handler {
             Latest(Proxy),
-            Handler2023_11_10(incoming_handler2023_11_10::Guest),
-            Handler2023_10_18(incoming_handler2023_10_18::Guest),
+            Handler2023_11_10(Proxy2023_11_10),
+            Handler2023_10_18(Proxy2023_10_18),
         }
 
         let handler = match self.handler_type {
-            HandlerType::Wasi2023_10_18 => {
-                let indices =
-                    incoming_handler2023_10_18::GuestIndices::new_instance(&mut store, &instance)?;
+            HandlerType::Wasi2023_10_18(indices) => {
                 let guest = indices.load(&mut store, &instance)?;
                 Handler::Handler2023_10_18(guest)
             }
-            HandlerType::Wasi2023_11_10 => {
-                let indices =
-                    incoming_handler2023_11_10::GuestIndices::new_instance(&mut store, &instance)?;
+            HandlerType::Wasi2023_11_10(indices) => {
                 let guest = indices.load(&mut store, &instance)?;
                 Handler::Handler2023_11_10(guest)
             }
-            HandlerType::Wasi0_2 => Handler::Latest(Proxy::new(&mut store, &instance)?),
-            HandlerType::Wasi0_3 => unreachable!("should have used Wasip3HttpExecutor"),
+            HandlerType::Wasi0_2(indices) => Handler::Latest(indices.load(&mut store, &instance)?),
+            HandlerType::Wasi0_3(indices) => unreachable!("should have used Wasip3HttpExecutor"),
             HandlerType::Spin => unreachable!("should have used SpinHttpExecutor"),
-            HandlerType::Wagi => unreachable!("should have used WagiExecutor instead"),
+            HandlerType::Wagi(_) => unreachable!("should have used WagiExecutor instead"),
         };
 
         let span = tracing::debug_span!("execute_wasi");
@@ -112,12 +108,14 @@ impl HttpExecutor for WasiHttpExecutor {
                     }
                     Handler::Handler2023_10_18(handler) => {
                         handler
+                            .wasi_http0_2_0_rc_2023_10_18_incoming_handler()
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await
                     }
                     Handler::Handler2023_11_10(handler) => {
                         handler
+                            .wasi_http0_2_0_rc_2023_11_10_incoming_handler()
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await
@@ -146,7 +144,11 @@ impl HttpExecutor for WasiHttpExecutor {
                         Ok(())
                     }
                     .map_err(|e: anyhow::Error| {
-                        tracing::warn!("component error after response: {e:?}");
+                        if std::io::stderr().is_terminal() {
+                            tracing::error!("Component error after response started. The response may not be fully sent: {e:?}");
+                        } else {
+                            terminal::warn!("Component error after response started: {e:?}");
+                        }
                     }),
                 );
 

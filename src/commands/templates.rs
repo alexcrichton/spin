@@ -20,7 +20,7 @@ const UPGRADE_ONLY: &str = "GIT_URL";
 
 const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
     "You don't have any templates yet. Would you like to install the default set?";
-const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
+const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/spinframework/spin";
 
 /// Commands for working with WebAssembly component templates.
 #[derive(Subcommand, Debug)]
@@ -274,10 +274,10 @@ impl Upgrade {
         let has_unorigined_default_templates = no_origin.iter().any(|t| t.id() == "http-rust");
         let has_unorigined_js_templates = no_origin.iter().any(|t| t.id() == "http-js");
         if has_unorigined_default_templates {
-            repos.insert("https://github.com/fermyon/spin");
+            repos.insert("https://github.com/spinframework/spin");
         }
         if has_unorigined_js_templates {
-            repos.insert("https://github.com/fermyon/spin-js-sdk");
+            repos.insert("https://github.com/spinframework/spin-js-sdk");
         }
 
         let mut sources = vec![];
@@ -654,16 +654,16 @@ mod tests {
     #[test]
     fn infers_github_url_if_needed() {
         assert_eq!(
-            "https://github.com/fermyon/spin",
-            infer_github("fermyon/spin")
+            "https://github.com/spinframework/spin",
+            infer_github("spinframework/spin")
         );
         assert_eq!(
-            "https://github.com/fermyon/spin",
-            infer_github("/fermyon/spin")
+            "https://github.com/spinframework/spin",
+            infer_github("/spinframework/spin")
         );
         assert_eq!(
-            "https://github.com/fermyon/spin",
-            infer_github("https://github.com/fermyon/spin")
+            "https://github.com/spinframework/spin",
+            infer_github("https://github.com/spinframework/spin")
         );
     }
 }

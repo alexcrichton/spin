@@ -2,7 +2,7 @@ title = "Creating a new Spin release"
 template = "spin_main"
 date = "2023-07-11T00:22:56Z"
 [extra]
-url = "https://github.com/fermyon/spin/blob/main/docs/content/release-process.md"
+url = "https://github.com/spinframework/spin/blob/main/docs/content/release-process.md"
 
 ---
 
@@ -22,15 +22,15 @@ The main steps are as follows:
 
 When ready to release the next version of Spin, first locate the commit that will serve as its basis. In other words, the last functional commit to be included besides the version bump commit that will be created below.
 
-Ensure that CI/CD is green for this commit, specifically the [Build](https://github.com/fermyon/spin/actions/workflows/build.yml) workflow and, if applicable, the [Release](https://github.com/fermyon/spin/actions/workflows/release.yml) workflow.
+Ensure that CI/CD is green for this commit, specifically the [Build](https://github.com/spinframework/spin/actions/workflows/build.yml) workflow and, if applicable, the [Release](https://github.com/spinframework/spin/actions/workflows/release.yml) workflow.
 
 ## Switch to release branch and bump versions
 
-1. If this is a major/minor release (e.g. `v2.0.0`) or a first release candidate (e.g. `v2.0.0-rc.1`), create the release branch from the designated commit. The branch name should include the major and minor version but no patch version, e.g. `v2.0`. With our branch protection rules this is easiest from the Github UI with the [New Branch button here](https://github.com/fermyon/spin/branches).
+1. If this is a major/minor release (e.g. `v2.0.0`) or a first release candidate (e.g. `v2.0.0-rc.1`), create the release branch from the designated commit. The branch name should include the major and minor version but no patch version, e.g. `v2.0`. With our branch protection rules this is easiest from the Github UI with the [New Branch button here](https://github.com/spinframework/spin/branches).
 
 1. Otherwise, if this is a patch release or subsequent release candidate, a release branch will already exist.
 
-   > **Note**: For a patch release, first backport the commits you wish to include to the release branch you're creating the patch release for. Use the [backport script](https://github.com/fermyon/spin/blob/main/.github/gh-backport.sh) to do so, e.g.
+   > **Note**: For a patch release, first backport the commits you wish to include to the release branch you're creating the patch release for. Use the [backport script](https://github.com/spinframework/spin/blob/main/.github/gh-backport.sh) to do so, e.g.
 
    ```
    $ ./.github/gh-backport.sh <pull-request> <branch-name>
@@ -55,7 +55,7 @@ Ensure that CI/CD is green for this commit, specifically the [Build](https://git
 
 1. Once the version bump PR is approved and merged, confirm that CI is green for that merge commit.
 
-1. Create a new tag from the merge commit. The tag should begin with a `v`, followed by the version number, e.g. `v2.0.0`. Then, push the tag to the `fermyon/spin` origin repo.
+1. Create a new tag from the merge commit. The tag should begin with a `v`, followed by the version number, e.g. `v2.0.0`. Then, push the tag to the `spinframework/spin` origin repo.
 
     As an example, via the `git` CLI:
 
@@ -67,11 +67,11 @@ Ensure that CI/CD is green for this commit, specifically the [Build](https://git
     # Create a GPG-signed and annotated tag
     git tag -s -m "Spin v2.0.0" v2.0.0
 
-    # Push the tag to the remote corresponding to fermyon/spin (here 'origin')
+    # Push the tag to the remote corresponding to spinframework/spin (here 'origin')
     git push origin v2.0.0
     ```
 
-   This will trigger the [Release](https://github.com/fermyon/spin/actions/workflows/release.yml) workflow which produces and signs release artifacts and uploads them to a GitHub release.
+   This will trigger the [Release](https://github.com/spinframework/spin/actions/workflows/release.yml) workflow which produces and signs release artifacts and uploads them to a GitHub release.
 
 1. If this is a major/minor release, switch back to `main` and update the `Cargo.toml` version again, this time to e.g. `2.1.0-pre0` if `2.1.0` is the next anticipated release.  _(Patch and release candidates can skip this step.)_
    - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
@@ -82,7 +82,7 @@ Ensure that CI/CD is green for this commit, specifically the [Build](https://git
 The [release notes template](./release-notes-template.md) can be used as a guide and starting point.
 
 A good way to familiarize oneself with the features, fixes and other changes in a release is to look at the comparison URL in GitHub,
-e.g. `https://github.com/fermyon/spin/compare/<previous tag>...main`. Often commit messages will indicate whether it is a feature, fix,
+e.g. `https://github.com/spinframework/spin/compare/<previous tag>...main`. Often commit messages will indicate whether it is a feature, fix,
 docs, chore or other PR. However, you may also need to click into the closed pull request linked to a commit to gain more context.
 
 Once the GitHub release is created, edit the release with these notes.
@@ -95,20 +95,15 @@ There are a handful of projects that use Spin and would appreciate notification 
 
 ### Spin Docs
 
-- Documentation for Spin exists in the [fermyon/developer](https://github.com/fermyon/developer) repository. Based on the changes remarked upon in the release notes, check to see if any documentation may be missing. If so, either file issues in the repo, create the documentation PR(s) or reach out in the [Spin channel on Fermyon's Discord](https://discord.com/channels/926888690310053918/950022897160839248).
-
-   At a minimum, the CLI reference will need to be added per the new Spin release. Again, this can be tracked as an issue in the repo or, if creating the PR directly, check out the [current automation](https://github.com/fermyon/developer/tree/main/toolkit) for creating the updated markdown.
+- Documentation for Spin exists in the [spinframework/spin-docs](https://github.com/spinframework/spin-docs) repository. Based on the changes remarked upon in the release notes, check to see if any documentation may be missing. If so, either file issues in the repo, create the documentation PR(s) or reach out in the [Spin CNCF Slack channel](https://cloud-native.slack.com/archives/C089NJ9G1V0).
 
 ### SpinKube
 
-- The [Containerd Shim Spin](https://github.com/spinkube/containerd-shim-spin) project often organizes its next release around a new version of Spin.
+- The [Containerd Shim Spin](https://github.com/spinframework/containerd-shim-spin) project often organizes its next release around a new version of Spin.
 
    - Consider announcing the new release in the [SpinKube CNCF Slack channel](https://cloud-native.slack.com/archives/C06PC7JA1EE).
    
-   - If a contributor to the project, you might also create a PR bumping Spin crate versions. Often this requires bumping the wasmtime version(s) to suit, as well as orchestrating releases of associated projects such as [spin-trigger-command](https://github.com/fermyon/spin-trigger-command) and [spin-trigger-sqs](https://github.com/fermyon/spin-trigger-sqs), with their Spin crate versions bumped to the same.
-
-### Fermyon Cloud
-
-- The [Fermyon Cloud plugin](https://github.com/fermyon/cloud-plugin) project commonly updates its Spin version to acquire new features and fixes.
-
-   - Consider notifying maintainers in the [Cloud channel on Fermyon's Discord](https://discord.com/channels/926888690310053918/1024646765149950022).
+   - If a contributor to the project, you might also create a PR bumping Spin crate versions. Often this requires bumping the wasmtime version(s) to suit, as well as orchestrating releases of associated projects with their Spin crate versions bumped to the same, such as:
+     - [spin-trigger-command](https://github.com/spinframework/spin-trigger-command)
+     - [spin-trigger-sqs](https://github.com/spinframework/spin-trigger-sqs)
+     - [spin-trigger-mqtt](https://github.com/spinframework/spin-trigger-mqtt)

@@ -4,7 +4,7 @@
 
 To build and run the Spin documentation website:
 
-1. Build Spin using the [contributing guide](https://developer.fermyon.com/spin/contributing).
+1. Build Spin using the [contributing guide](https://spinframework.dev/contributing-spin).
 
 2. Run the website from this directory via Spin:
 

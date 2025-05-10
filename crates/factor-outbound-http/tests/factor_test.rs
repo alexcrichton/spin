@@ -7,7 +7,7 @@ use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
-use wasmtime_wasi::Subscribe;
+use wasmtime_wasi::Pollable;
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode, types::OutgoingRequestConfig, WasiHttpView,
 };

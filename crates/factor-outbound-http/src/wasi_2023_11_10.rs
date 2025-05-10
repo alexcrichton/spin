@@ -47,6 +47,7 @@ pub mod exports {
     }
 }
 
+pub use bindings::{Proxy, ProxyIndices};
 use wasi::http::types::{
     DnsErrorPayload, ErrorCode as HttpErrorCode, FieldSizePayload, Fields, FutureIncomingResponse,
     FutureTrailers, HeaderError, Headers, IncomingBody, IncomingRequest, IncomingResponse, Method,

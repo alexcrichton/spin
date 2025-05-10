@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use anyhow::{bail, Result};
 use opentelemetry::global;
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
-    resource::{EnvResourceDetector, TelemetryResourceDetector},
-    runtime, Resource,
+    resource::{EnvResourceDetector, ResourceDetector, TelemetryResourceDetector},
+    Resource,
 };
 use tracing::Subscriber;
 use tracing_opentelemetry::MetricsLayer;
@@ -21,18 +19,17 @@ use crate::{detector::SpinResourceDetector, env::OtlpProtocol};
 pub(crate) fn otel_metrics_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     spin_version: String,
 ) -> Result<impl Layer<S>> {
-    let resource = Resource::from_detectors(
-        Duration::from_secs(5),
-        vec![
+    let resource = Resource::builder()
+        .with_detectors(&[
             // Set service.name from env OTEL_SERVICE_NAME > env OTEL_RESOURCE_ATTRIBUTES > spin
             // Set service.version from Spin metadata
-            Box::new(SpinResourceDetector::new(spin_version)),
+            Box::new(SpinResourceDetector::new(spin_version)) as Box<dyn ResourceDetector>,
             // Sets fields from env OTEL_RESOURCE_ATTRIBUTES
             Box::new(EnvResourceDetector::new()),
             // Sets telemetry.sdk{name, language, version}
             Box::new(TelemetryResourceDetector),
-        ],
-    );
+        ])
+        .build();
 
     // This will configure the exporter based on the OTEL_EXPORTER_* environment variables. We
     // currently default to using the HTTP exporter but in the future we could select off of the
@@ -48,7 +45,7 @@ pub(crate) fn otel_metrics_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
 
-    let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
+    let reader = PeriodicReader::builder(exporter).build();
     let meter_provider = SdkMeterProvider::builder()
         .with_reader(reader)
         .with_resource(resource)

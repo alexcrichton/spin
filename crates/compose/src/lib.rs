@@ -162,7 +162,6 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
         self.graph
             .encode(Default::default())
             .map_err(|e| ComposeError::EncodeError(e.into()))
-            .map(Into::into)
     }
 
     fn new(loader: &'a L) -> Self {

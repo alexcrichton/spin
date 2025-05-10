@@ -105,7 +105,7 @@ pub fn build_headers(
     // https://datatracker.ietf.org/doc/html/rfc3875#section-4.1.13
     headers.insert(
         "SCRIPT_NAME".to_owned(),
-        route_match.based_route_or_prefix(),
+        route_match.based_route_or_prefix().to_owned(),
     );
     // PATH_INFO is any path information after SCRIPT_NAME
     //
@@ -117,7 +117,10 @@ pub fn build_headers(
     // https://datatracker.ietf.org/doc/html/rfc3875#section-4.1.5
     let pathsegment = path_info;
     let pathinfo = percent_encoding::percent_decode_str(&pathsegment).decode_utf8_lossy();
-    headers.insert("X_RAW_PATH_INFO".to_owned(), pathsegment.clone());
+    headers.insert(
+        "X_RAW_PATH_INFO".to_owned(),
+        pathsegment.as_ref().to_owned(),
+    );
     headers.insert("PATH_INFO".to_owned(), pathinfo.to_string());
     // PATH_TRANSLATED is the url-decoded version of PATH_INFO
     // https://datatracker.ietf.org/doc/html/rfc3875#section-4.1.6

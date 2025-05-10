@@ -43,6 +43,7 @@ pub mod exports {
     }
 }
 
+pub use bindings::{Proxy, ProxyIndices};
 use wasi::http::types::{
     Error as HttpError, Fields, FutureIncomingResponse, FutureTrailers, Headers, IncomingBody,
     IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,

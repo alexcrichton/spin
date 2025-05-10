@@ -13,6 +13,7 @@ use tokio::{net::TcpStream, time::timeout};
 use tracing::{field::Empty, instrument, Instrument};
 use wasmtime::component::{Accessor, AccessorTask, StreamReader, StreamWriter};
 use wasmtime_wasi::{runtime::AbortOnDropJoinHandle, IoImpl, IoView};
+use wasmtime_wasi::{IoImpl, IoView};
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode,
     body::{HyperIncomingBody, HyperOutgoingBody},

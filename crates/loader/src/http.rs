@@ -4,9 +4,34 @@ use anyhow::{ensure, Context, Result};
 use sha2::Digest;
 use tokio::io::AsyncWriteExt;
 
+/// Describes the naming convention that `verified_download` is permitted
+/// to assume in the directory it saves downloads to.
+///
+/// Consumers (direct or indirect) of `verified_download` are expected to check
+/// if the file is already downloaded before calling it. This enum exists
+/// to address race conditions when the same blob is downloaded several times
+/// concurrently.
+///
+/// The significance of this is for when the destination file turns out to already
+/// exist after all (that is, has been created since the caller originally checked
+/// existence). In the ContentIndexed case, the name already existing guarantees that
+/// the file matches the download. If a caller uses `verified_download` for a
+/// *non*-content-indexed case then they must provide and handle a new variant
+/// of the enum.
+pub enum DestinationConvention {
+    /// The download destination is content-indexed; therefore, in the event
+    /// of a race, the loser of the race can be safely discarded.
+    ContentIndexed,
+}
+
 /// Downloads content from `url` which will be verified to match `digest` and
 /// then moved to `dest`.
-pub async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<()> {
+pub async fn verified_download(
+    url: &str,
+    digest: &str,
+    dest: &Path,
+    convention: DestinationConvention,
+) -> Result<()> {
     tracing::debug!("Downloading content from {url:?}");
 
     // Prepare tempfile destination
@@ -38,9 +63,16 @@ pub async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<(
     );
 
     // Move to final destination
-    temp_path
-        .persist_noclobber(dest)
-        .with_context(|| format!("Failed to save download from {url} to {}", dest.display()))?;
+    let persist_result = temp_path.persist_noclobber(dest);
 
-    Ok(())
+    persist_result.or_else(|e| {
+        let file_already_exists = e.error.kind() == std::io::ErrorKind::AlreadyExists;
+        if file_already_exists && matches!(convention, DestinationConvention::ContentIndexed) {
+            Ok(())
+        } else {
+            Err(e).with_context(|| {
+                format!("Failed to save download from {url} to {}", dest.display())
+            })
+        }
+    })
 }
