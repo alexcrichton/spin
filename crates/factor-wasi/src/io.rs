@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use spin_factors::anyhow;
-use wasmtime_wasi::{InputStream, OutputStream, Pollable, StdinStream, StdoutStream, StreamError};
+use wasmtime_wasi::p2::{
+    InputStream, OutputStream, Pollable, StdinStream, StdoutStream, StreamError,
+};
 
 /// A [`OutputStream`] that writes to a `Write` type.
 ///
@@ -94,7 +96,7 @@ impl<T> Clone for PipeReadStream<T> {
 }
 
 impl<T: Read + Send + Sync + 'static> InputStream for PipeReadStream<T> {
-    fn read(&mut self, size: usize) -> wasmtime_wasi::StreamResult<bytes::Bytes> {
+    fn read(&mut self, size: usize) -> wasmtime_wasi::p2::StreamResult<bytes::Bytes> {
         let size = size.min(self.buffer.len());
 
         let count = self
@@ -104,7 +106,7 @@ impl<T: Read + Send + Sync + 'static> InputStream for PipeReadStream<T> {
             .read(&mut self.buffer[..size])
             .map_err(|e| StreamError::LastOperationFailed(anyhow::anyhow!(e)))?;
         if count == 0 {
-            return Err(wasmtime_wasi::StreamError::Closed);
+            return Err(wasmtime_wasi::p2::StreamError::Closed);
         }
 
         Ok(bytes::Bytes::copy_from_slice(&self.buffer[..count]))

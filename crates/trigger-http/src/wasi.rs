@@ -12,7 +12,7 @@ use spin_http::routes::RouteMatch;
 use spin_http::trigger::HandlerType;
 use tokio::{sync::oneshot, task};
 use tracing::{instrument, Instrument, Level};
-use wasmtime_wasi::IoView;
+use wasmtime_wasi::p2::IoView;
 use wasmtime_wasi_http::bindings::http::types::Scheme;
 use wasmtime_wasi_http::{bindings::Proxy, body::HyperIncomingBody as Body, WasiHttpView};
 

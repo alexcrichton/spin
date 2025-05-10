@@ -1,10 +1,10 @@
 use super::wasi_2023_10_18::{convert, convert_result};
 use spin_factors::anyhow::{self, Result};
 use wasmtime::component::{Linker, Resource};
-use wasmtime_wasi::{WasiImpl, WasiView};
+use wasmtime_wasi::p2::{WasiImpl, WasiView};
 
 mod latest {
-    pub use wasmtime_wasi::bindings::*;
+    pub use wasmtime_wasi::p2::bindings::*;
 }
 
 mod bindings {
@@ -591,19 +591,19 @@ where
 
 fn convert_stream_result<T, T2>(
     mut view: impl WasiView,
-    result: Result<T, wasmtime_wasi::StreamError>,
+    result: Result<T, wasmtime_wasi::p2::StreamError>,
 ) -> wasmtime::Result<Result<T2, StreamError>>
 where
     T2: From<T>,
 {
     match result {
         Ok(e) => Ok(Ok(e.into())),
-        Err(wasmtime_wasi::StreamError::Closed) => Ok(Err(StreamError::Closed)),
-        Err(wasmtime_wasi::StreamError::LastOperationFailed(e)) => {
+        Err(wasmtime_wasi::p2::StreamError::Closed) => Ok(Err(StreamError::Closed)),
+        Err(wasmtime_wasi::p2::StreamError::LastOperationFailed(e)) => {
             let e = view.table().push(e)?;
             Ok(Err(StreamError::LastOperationFailed(e)))
         }
-        Err(wasmtime_wasi::StreamError::Trap(e)) => Err(e),
+        Err(wasmtime_wasi::p2::StreamError::Trap(e)) => Err(e),
     }
 }
 

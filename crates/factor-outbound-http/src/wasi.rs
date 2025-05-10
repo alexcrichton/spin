@@ -9,7 +9,7 @@ use spin_factor_outbound_networking::{ComponentTlsConfigs, OutboundAllowedHosts}
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
 use tokio::{net::TcpStream, time::timeout};
 use tracing::{field::Empty, instrument, Instrument};
-use wasmtime_wasi::{IoImpl, IoView};
+use wasmtime_wasi::p2::{IoImpl, IoView};
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode,
     body::HyperOutgoingBody,

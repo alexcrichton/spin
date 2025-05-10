@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use spin_factor_outbound_http::wasi_2023_10_18::ProxyIndices as ProxyIndices2023_10_18;
 use spin_factor_outbound_http::wasi_2023_11_10::ProxyIndices as ProxyIndices2023_11_10;
-use wasmtime::component::Component;
-use wasmtime_wasi::bindings::CommandIndices;
+use wasmtime::component::InstancePre;
+use wasmtime_wasi::p2::bindings::CommandIndices;
 use wasmtime_wasi_http::bindings::ProxyIndices;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -37,18 +37,22 @@ const SPIN_HTTP_EXPORT: &str = "fermyon:spin/inbound-http";
 
 impl HandlerType {
     /// Determine the handler type from the exports of a component.
-    pub fn from_component(component: &Component) -> anyhow::Result<HandlerType> {
+    pub fn from_instance_pre<T>(pre: &InstancePre<T>) -> anyhow::Result<HandlerType> {
         let mut candidates = Vec::new();
-        if let Ok(indices) = ProxyIndices::new(component) {
+        if let Ok(indices) = ProxyIndices::new(pre) {
             candidates.push(HandlerType::Wasi0_2(indices));
         }
-        if let Ok(indices) = ProxyIndices2023_10_18::new(component) {
+        if let Ok(indices) = ProxyIndices2023_10_18::new(pre) {
             candidates.push(HandlerType::Wasi2023_10_18(indices));
         }
-        if let Ok(indices) = ProxyIndices2023_11_10::new(component) {
+        if let Ok(indices) = ProxyIndices2023_11_10::new(pre) {
             candidates.push(HandlerType::Wasi2023_11_10(indices));
         }
-        if component.export_index(None, SPIN_HTTP_EXPORT).is_some() {
+        if pre
+            .component()
+            .get_export_index(None, SPIN_HTTP_EXPORT)
+            .is_some()
+        {
             candidates.push(HandlerType::Spin);
         }
 

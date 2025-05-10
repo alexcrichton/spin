@@ -55,11 +55,8 @@ impl Config {
     ///
     /// [docs]: https://docs.wasmtime.dev/cli-cache.html
     pub fn enable_cache(&mut self, config_path: &Option<PathBuf>) -> Result<()> {
-        match config_path {
-            Some(p) => self.inner.cache_config_load(p)?,
-            None => self.inner.cache_config_load_default()?,
-        };
-
+        self.inner
+            .cache(Some(wasmtime::Cache::from_file(config_path.as_deref())?));
         Ok(())
     }
 
@@ -215,14 +212,14 @@ impl State {
 /// A builder interface for configuring a new [`Engine`].
 ///
 /// A new [`EngineBuilder`] can be obtained with [`Engine::builder`].
-pub struct EngineBuilder<T> {
+pub struct EngineBuilder<T: 'static> {
     engine: wasmtime::Engine,
     linker: Linker<T>,
     epoch_tick_interval: Duration,
     epoch_ticker_thread: bool,
 }
 
-impl<T> EngineBuilder<T> {
+impl<T: 'static> EngineBuilder<T> {
     fn new(config: &Config) -> Result<Self> {
         let engine = wasmtime::Engine::new(&config.inner)?;
         let linker: Linker<T> = Linker::new(&engine);
@@ -289,13 +286,13 @@ impl<T> EngineBuilder<T> {
 
 /// An `Engine` is a global context for the initialization and execution of
 /// Spin components.
-pub struct Engine<T> {
+pub struct Engine<T: 'static> {
     inner: wasmtime::Engine,
     linker: Linker<T>,
     epoch_tick_interval: Duration,
 }
 
-impl<T> Engine<T> {
+impl<T: 'static> Engine<T> {
     /// Creates a new [`EngineBuilder`] with the given [`Config`].
     pub fn builder(config: &Config) -> Result<EngineBuilder<T>> {
         EngineBuilder::new(config)

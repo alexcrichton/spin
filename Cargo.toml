@@ -176,9 +176,9 @@ wasm-metadata = "0.229"
 wasm-pkg-client = "0.10"
 wasm-pkg-common = "0.10"
 wasmparser = "0.229"
-wasmtime = "32.0.0"
-wasmtime-wasi = "32.0.0"
-wasmtime-wasi-http = "32.0.0"
+wasmtime = { git = 'https://github.com/alexcrichton/wasmtime', branch = 'add-static-bound' }
+wasmtime-wasi = { git = 'https://github.com/alexcrichton/wasmtime', branch = 'add-static-bound' }
+wasmtime-wasi-http = { git = 'https://github.com/alexcrichton/wasmtime', branch = 'add-static-bound' }
 wit-component = "0.229"
 wit-parser = "0.229"
 
