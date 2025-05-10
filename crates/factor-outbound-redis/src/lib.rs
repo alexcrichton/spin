@@ -3,7 +3,8 @@ mod host;
 use host::InstanceState;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
+    anyhow, ConfigureAppContext, Factor, FactorData, PrepareContext, RuntimeFactors,
+    SelfInstanceBuilder,
 };
 
 /// The [`Factor`] for `fermyon:spin/outbound-redis`.
@@ -23,12 +24,12 @@ impl Factor for OutboundRedisFactor {
     type AppState = ();
     type InstanceBuilder = InstanceState;
 
-    fn init<T: Send + 'static>(
-        &mut self,
-        mut ctx: spin_factors::InitContext<T, Self>,
-    ) -> anyhow::Result<()> {
-        ctx.link_bindings(spin_world::v1::redis::add_to_linker)?;
-        ctx.link_bindings(spin_world::v2::redis::add_to_linker)?;
+    fn init<C>(&mut self, ctx: &mut C) -> anyhow::Result<()>
+    where
+        C: spin_factors::InitContext<Self>,
+    {
+        ctx.link_bindings(spin_world::v1::redis::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::v2::redis::add_to_linker::<_, FactorData<Self>>)?;
         Ok(())
     }
 

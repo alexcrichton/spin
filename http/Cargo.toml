@@ -7,5 +7,7 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 futures = { workspace = true }
-wasmtime = { git = "https://github.com/bytecodealliance/wasip3-prototyping", branch = "main", features = ["component-model-async"] }
 bytes = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
+wasmtime-wasi = { workspace = true }

@@ -1,6 +1,7 @@
 use std::{error::Error, net::IpAddr, sync::Arc};
 
 use anyhow::{bail, Context};
+use bytes::BytesMut;
 use futures::{channel::mpsc, SinkExt};
 use http::{header::HOST, Request};
 use http_body_util::BodyExt;
@@ -9,11 +10,12 @@ use ip_network::IpNetwork;
 use rustls::ClientConfig;
 use spin_factor_outbound_networking::{ComponentTlsConfigs, OutboundAllowedHosts};
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
+use std::io::Cursor;
 use tokio::{net::TcpStream, time::timeout};
 use tracing::{field::Empty, instrument, Instrument};
-use wasmtime::component::{Accessor, AccessorTask, StreamReader, StreamWriter};
+use wasmtime::component::{Accessor, AccessorTask, HasData, StreamReader, StreamWriter};
 use wasmtime_wasi::p2::{IoImpl, IoView};
-use wasmtime_wasi::{runtime::AbortOnDropJoinHandle, IoImpl, IoView};
+use wasmtime_wasi::runtime::AbortOnDropJoinHandle;
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode,
     body::{HyperIncomingBody, HyperOutgoingBody},
@@ -27,59 +29,57 @@ use crate::{
     wasi_2023_10_18, wasi_2023_11_10, InstanceState, OutboundHttpFactor, SelfRequestOrigin,
 };
 
-pub(crate) fn add_to_linker<T: Send + 'static>(
-    ctx: &mut spin_factors::InitContext<T, OutboundHttpFactor>,
-) -> anyhow::Result<()> {
-    fn type_annotate<T, F>(f: F) -> F
+type HasHttpP3 = wasi_http_draft::WasiHttp<OutboundHttpFactor>;
+
+pub(crate) struct HasHttpP2;
+
+impl HasData for HasHttpP2 {
+    type Data<'a> = WasiHttpImpl<WasiHttpImplInner<'a>>;
+}
+
+pub(crate) fn add_to_linker<C>(ctx: &mut C) -> anyhow::Result<()>
+where
+    C: spin_factors::InitContext<OutboundHttpFactor>,
+{
+    fn get_http<C>(store: &mut C::StoreData) -> WasiHttpImpl<WasiHttpImplInner<'_>>
     where
-        F: Fn(&mut T) -> WasiHttpImpl<WasiHttpImplInner>,
+        C: spin_factors::InitContext<OutboundHttpFactor>,
     {
-        f
-    }
-    let get_data_with_table = ctx.get_data_with_table_fn();
-    let closure = type_annotate(move |data| {
-        let (state, table) = get_data_with_table(data);
+        let (state, table) = C::get_data_with_table(store);
         WasiHttpImpl(IoImpl(WasiHttpImplInner { state, table }))
-    });
-    let linker = ctx.linker();
-    wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker_get_host(linker, closure)?;
-    wasmtime_wasi_http::bindings::http::types::add_to_linker_get_host(linker, closure)?;
-
-    wasi_2023_10_18::add_to_linker(linker, closure)?;
-    wasi_2023_11_10::add_to_linker(linker, closure)?;
-
-    fn type_annotate_draft<T, F>(val: F) -> F
-    where
-        F: Fn(&mut T) -> wasi_http_draft::WasiHttpImpl<WasiHttpImplInner>,
-    {
-        val
     }
+    let get_http = get_http::<C> as fn(&mut C::StoreData) -> WasiHttpImpl<WasiHttpImplInner<'_>>;
+    let linker = ctx.linker();
+    wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker::<_, HasHttpP2>(
+        linker, get_http,
+    )?;
+    wasmtime_wasi_http::bindings::http::types::add_to_linker::<_, HasHttpP2>(linker, get_http)?;
 
-    let closure = type_annotate_draft(move |data| {
-        let (state, table) = get_data_with_table(data);
-        wasi_http_draft::WasiHttpImpl(WasiHttpImplInner { state, table })
-    });
-    wasi_http_draft::wasi::http::types::add_to_linker_get_host(linker, closure)?;
-    wasi_http_draft::wasi::http::handler::add_to_linker_get_host(linker, closure)?;
+    wasi_2023_10_18::add_to_linker(linker, get_http)?;
+    wasi_2023_11_10::add_to_linker(linker, get_http)?;
+
+    wasi_http_draft::wasi::http::types::add_to_linker::<_, HasHttpP3>(linker, get_http)?;
+    wasi_http_draft::wasi::http::handler::add_to_linker::<_, HasHttpP3>(linker, get_http)?;
 
     Ok(())
 }
 
 struct RequestBodyTask {
-    rx: StreamReader<Bytes>,
+    rx: StreamReader<BytesMut>,
     tx: mpsc::Sender<Result<Frame<Bytes>, wasmtime_wasi_http::bindings::http::types::ErrorCode>>,
 }
 
-impl<T, U: WasiHttpView> AccessorTask<T, U, wasmtime::Result<()>> for RequestBodyTask {
-    async fn run(mut self, _: &mut Accessor<T, U>) -> wasmtime::Result<()> {
+impl<T> AccessorTask<T, HasHttpP3, wasmtime::Result<()>> for RequestBodyTask {
+    async fn run(mut self, _: &mut Accessor<T, HasHttpP3>) -> wasmtime::Result<()> {
         let mut rx = Some(self.rx);
 
         while let Some(inner_rx) = rx.take() {
-            if let Ok((inner_rx, chunk)) = inner_rx.read().into_future().await {
-                rx = Some(inner_rx);
-                if self.tx.send(Ok(Frame::data(chunk))).await.is_err() {
-                    break;
-                }
+            // TODO: don't alocate this each turn of hte loop
+            let bytes = BytesMut::with_capacity(16 * 1024);
+            let (inner_rx, chunk) = inner_rx.read(bytes).await;
+            rx = inner_rx;
+            if self.tx.send(Ok(Frame::data(chunk.into()))).await.is_err() {
+                break;
             }
         }
 
@@ -90,17 +90,19 @@ impl<T, U: WasiHttpView> AccessorTask<T, U, wasmtime::Result<()>> for RequestBod
 struct ResponseBodyTask {
     _worker: Option<AbortOnDropJoinHandle<()>>,
     rx: HyperIncomingBody,
-    tx: StreamWriter<Bytes>,
+    tx: StreamWriter<Cursor<Bytes>>,
 }
 
-impl<T, U: WasiHttpView> AccessorTask<T, U, wasmtime::Result<()>> for ResponseBodyTask {
-    async fn run(mut self, _: &mut Accessor<T, U>) -> wasmtime::Result<()> {
+impl<T> AccessorTask<T, HasHttpP3, wasmtime::Result<()>> for ResponseBodyTask {
+    async fn run(mut self, _: &mut Accessor<T, HasHttpP3>) -> wasmtime::Result<()> {
         let mut tx = Some(self.tx);
 
         while let (Some(Ok(frame)), Some(inner_tx)) = (self.rx.frame().await, tx) {
             match frame.into_data() {
                 Ok(chunk) => {
-                    tx = inner_tx.write(chunk).into_future().await;
+                    let (inner_tx, chunk) = inner_tx.write(Cursor::new(chunk)).await;
+                    tx = inner_tx;
+                    let _ = chunk; // TODO: don't throw this on the ground
                 }
                 Err(_) => bail!("todo: handle incoming response trailers"),
             }
@@ -110,13 +112,11 @@ impl<T, U: WasiHttpView> AccessorTask<T, U, wasmtime::Result<()>> for ResponseBo
     }
 }
 
-impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
-    fn table(&mut self) -> &mut wasmtime::component::ResourceTable {
-        self.table
-    }
+impl wasi_http_draft::WasiHttpViewConcurrent for OutboundHttpFactor {
+    type View<'a> = WasiHttpImplInner<'a>;
 
     async fn send_request<T: 'static>(
-        accessor: &mut wasmtime::component::Accessor<T, Self>,
+        accessor: &mut wasmtime::component::Accessor<T, HasHttpP3>,
         request: wasmtime::component::Resource<wasi_http_draft::wasi::http::types::Request>,
     ) -> wasmtime::Result<
         Result<
@@ -128,12 +128,10 @@ impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
             http::{uri, Uri},
             http_body_util::{Empty, StreamBody},
             hyper::header::HeaderValue,
-            std::{ops::DerefMut, time::Duration},
-            wasi_http_draft::{
-                wasi::http::types::{Body, ErrorCode, Fields, Method, Response, Scheme},
-                WasiHttpView,
+            std::time::Duration,
+            wasi_http_draft::wasi::http::types::{
+                Body, ErrorCode, Fields, Method, Response, Scheme,
             },
-            wasmtime::component,
             wasmtime_wasi_http::types::OutgoingRequestConfig,
         };
 
@@ -145,8 +143,11 @@ impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
             self_request_origin,
             allow_private_ips,
         ) = accessor.with(|mut view| {
+            let mut binding = view.get();
+            let request = wasi_http_draft::WasiHttpView::table(&mut binding).delete(request)?;
+            let view = &mut binding.0 .0;
             Ok::<_, wasmtime::Error>((
-                WasiHttpView::table(view.deref_mut()).delete(request)?,
+                request,
                 view.state.allowed_hosts.clone(),
                 view.state.component_tls_configs.clone(),
                 view.state.request_interceptor.clone(),
@@ -255,18 +256,14 @@ impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
                 .boxed()
         };
 
-        let body = if let Some(body) = request.body {
-            if body.trailers.is_some() {
-                bail!("todo: handle outgoing request trailers");
-            }
+        if request.body.trailers.is_some() {
+            bail!("todo: handle outgoing request trailers");
+        }
 
-            if let Some(stream) = body.stream {
-                let (tx, rx) = mpsc::channel(1);
-                accessor.spawn(RequestBodyTask { rx: stream, tx });
-                BodyExt::boxed(StreamBody::new(rx))
-            } else {
-                empty()
-            }
+        let body = if let Some(stream) = request.body.stream {
+            let (tx, rx) = mpsc::channel(1);
+            accessor.spawn(RequestBodyTask { rx: stream, tx });
+            BodyExt::boxed(StreamBody::new(rx))
         } else {
             empty()
         };
@@ -319,7 +316,7 @@ impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
         );
 
         accessor.with(|mut view| {
-            let (tx, rx) = component::stream(&mut view)?;
+            let (tx, rx) = view.instance().stream(&mut view)?;
 
             view.spawn(ResponseBodyTask {
                 _worker: worker,
@@ -327,17 +324,22 @@ impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
                 tx,
             });
 
-            Ok(Ok(WasiHttpView::table(view.deref_mut()).push(
-                Response {
+            Ok(Ok(wasi_http_draft::WasiHttpView::table(&mut view.get())
+                .push(Response {
                     status_code,
                     headers,
-                    body: Some(Body {
+                    body: Body {
                         stream: Some(rx),
                         trailers: None,
-                    }),
-                },
-            )?))
+                    },
+                })?))
         })
+    }
+}
+
+impl wasi_http_draft::WasiHttpView for WasiHttpImplInner<'_> {
+    fn table(&mut self) -> &mut wasmtime::component::ResourceTable {
+        self.table
     }
 }
 
@@ -357,7 +359,7 @@ impl OutboundHttpFactor {
     }
 }
 
-pub(crate) struct WasiHttpImplInner<'a> {
+pub struct WasiHttpImplInner<'a> {
     state: &'a mut InstanceState,
     table: &'a mut ResourceTable,
 }

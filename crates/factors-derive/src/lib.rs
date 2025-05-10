@@ -93,17 +93,55 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     }
                 }
 
+                struct FactorInitContext<'a, T, G> {
+                    linker: &'a mut #wasmtime::component::Linker<T>,
+                    _marker: std::marker::PhantomData<G>,
+                }
+
+                trait FactorField<F: #factors_path::Factor> {
+                    fn get(field: &mut #state_name) -> (
+                        &mut #factors_path::FactorInstanceState<F>,
+                        &mut #wasmtime::component::ResourceTable,
+                    );
+                }
+
+                impl<T, F, G> #factors_path::InitContext<F> for FactorInitContext<'_, T, G>
+                    where T: #factors_path::AsInstanceState<#state_name> + Send + 'static,
+                          F: #factors_path::Factor,
+                          G: FactorField<F>,
+                {
+                    type StoreData = T;
+
+                    fn linker(&mut self) -> &mut #wasmtime::component::Linker<Self::StoreData> {
+                        self.linker
+                    }
+
+                    fn get_data_with_table(
+                        store: &mut Self::StoreData,
+                    ) -> (&mut #factors_path::FactorInstanceState<F>, &mut #wasmtime::component::ResourceTable) {
+                        G::get(store.as_instance_state())
+                    }
+                }
+
                 #(
-                    #Factor::init::<T>(
+                    #[allow(non_camel_case_types)]
+                    struct #factor_names;
+
+                    impl FactorField<#factor_types> for #factor_names {
+                        fn get(state: &mut #state_name) -> (
+                            &mut #factors_path::FactorInstanceState<#factor_types>,
+                            &mut #wasmtime::component::ResourceTable,
+                        ) {
+                            (&mut state.#factor_names, &mut state.__table)
+                        }
+                    }
+
+                    #Factor::init(
                         &mut self.#factor_names,
-                        #factors_path::InitContext::<T, #factor_types>::new(
+                        &mut FactorInitContext::<'_, T, #factor_names> {
                             linker,
-                            |data| &mut data.as_instance_state().#factor_names,
-                            |data| {
-                                let state = data.as_instance_state();
-                                (&mut state.#factor_names, &mut state.__table)
-                            },
-                        )
+                            _marker: std::marker::PhantomData,
+                        },
                     ).map_err(#Error::factor_init_error::<#factor_types>)?;
                 )*
                 Ok(())

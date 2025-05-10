@@ -8122,6 +8122,7 @@ name = "spin-factor-outbound-http"
 version = "3.3.0-pre0"
 dependencies = [
  "anyhow",
+ "bytes",
  "futures",
  "http 1.1.0",
  "http-body-util",
@@ -8349,6 +8350,7 @@ dependencies = [
  "spin-factor-outbound-http",
  "toml",
  "tracing",
+ "wasi-http-draft",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",
@@ -10279,6 +10281,8 @@ dependencies = [
  "bytes",
  "futures",
  "wasmtime",
+ "wasmtime-wasi",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]

@@ -16,7 +16,8 @@ use spin_factor_outbound_networking::{
     ComponentTlsConfigs, OutboundAllowedHosts, OutboundNetworkingFactor,
 };
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
+    anyhow, ConfigureAppContext, Factor, FactorData, PrepareContext, RuntimeFactors,
+    SelfInstanceBuilder,
 };
 use wasmtime_wasi_http::WasiHttpCtx;
 
@@ -52,12 +53,12 @@ impl Factor for OutboundHttpFactor {
     type AppState = ();
     type InstanceBuilder = InstanceState;
 
-    fn init<T: Send + 'static>(
-        &mut self,
-        mut ctx: spin_factors::InitContext<T, Self>,
-    ) -> anyhow::Result<()> {
-        ctx.link_bindings(spin_world::v1::http::add_to_linker)?;
-        wasi::add_to_linker::<T>(&mut ctx)?;
+    fn init<C>(&mut self, ctx: &mut C) -> anyhow::Result<()>
+    where
+        C: spin_factors::InitContext<Self>,
+    {
+        ctx.link_bindings(spin_world::v1::http::add_to_linker::<_, FactorData<Self>>)?;
+        wasi::add_to_linker(ctx)?;
         Ok(())
     }
 

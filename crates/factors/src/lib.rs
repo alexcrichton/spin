@@ -11,7 +11,9 @@ pub use spin_app::{App, AppComponent};
 pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
-    factor::{ConfigureAppContext, ConfiguredApp, Factor, FactorInstanceState, InitContext},
+    factor::{
+        ConfigureAppContext, ConfiguredApp, Factor, FactorData, FactorInstanceState, InitContext,
+    },
     prepare::{FactorInstanceBuilder, PrepareContext, SelfInstanceBuilder},
     runtime_config::{FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer},
     runtime_factors::{

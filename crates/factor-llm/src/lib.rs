@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use spin_factors::{
-    ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
+    ConfigureAppContext, Factor, FactorData, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_locked_app::MetadataKey;
 use spin_world::v1::llm::{self as v1};
@@ -36,12 +36,12 @@ impl Factor for LlmFactor {
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
-    fn init<T: Send + 'static>(
-        &mut self,
-        mut ctx: spin_factors::InitContext<T, Self>,
-    ) -> anyhow::Result<()> {
-        ctx.link_bindings(spin_world::v1::llm::add_to_linker)?;
-        ctx.link_bindings(spin_world::v2::llm::add_to_linker)?;
+    fn init<C>(&mut self, ctx: &mut C) -> anyhow::Result<()>
+    where
+        C: spin_factors::InitContext<Self>,
+    {
+        ctx.link_bindings(spin_world::v1::llm::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::v2::llm::add_to_linker::<_, FactorData<Self>>)?;
         Ok(())
     }
 

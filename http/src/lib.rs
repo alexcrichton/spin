@@ -3,10 +3,7 @@
 wasmtime::component::bindgen!({
     trappable_imports: true,
     path: "wit",
-    interfaces: "
-      import wasi:http/types@0.3.0-draft;
-      import wasi:http/handler@0.3.0-draft;
-    ",
+    world: "wasi:http/proxy@0.3.0-draft",
     concurrent_imports: true,
     async: {
         only_imports: [
@@ -34,6 +31,8 @@ use {
         Accessor, AccessorTask, ErrorContext, FutureReader, HasData, HostFuture, HostStream,
         Linker, Resource, ResourceTable, StreamReader,
     },
+    wasmtime_wasi::p2::IoImpl,
+    wasmtime_wasi_http::WasiHttpImpl,
 };
 
 impl fmt::Display for Scheme {
@@ -97,12 +96,9 @@ where
     type Data<'a> = WasiHttpImpl<C::View<'a>>;
 }
 
-#[repr(transparent)]
-pub struct WasiHttpImpl<T>(pub T);
-
 impl<T: WasiHttpView> WasiHttpView for WasiHttpImpl<T> {
     fn table(&mut self) -> &mut ResourceTable {
-        self.0.table()
+        T::table(&mut self.0 .0)
     }
 }
 
@@ -538,7 +534,7 @@ where
     T: for<'a> WasiHttpViewConcurrent<View<'a> = &'a mut T> + 'static,
     T: WasiHttpView,
 {
-    wasi::http::types::add_to_linker::<T, WasiHttp<T>>(linker, |x| WasiHttpImpl(x))?;
-    wasi::http::handler::add_to_linker::<T, WasiHttp<T>>(linker, |x| WasiHttpImpl(x))?;
+    wasi::http::types::add_to_linker::<T, WasiHttp<T>>(linker, |x| WasiHttpImpl(IoImpl(x)))?;
+    wasi::http::handler::add_to_linker::<T, WasiHttp<T>>(linker, |x| WasiHttpImpl(IoImpl(x)))?;
     Ok(())
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use runtime_config::RuntimeConfig;
 use spin_expressions::{ProviderResolver as ExpressionResolver, Template};
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, InitContext, PrepareContext, RuntimeFactors,
+    anyhow, ConfigureAppContext, Factor, FactorData, InitContext, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
 
@@ -28,10 +28,13 @@ impl Factor for VariablesFactor {
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
-    fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
-        ctx.link_bindings(spin_world::v1::config::add_to_linker)?;
-        ctx.link_bindings(spin_world::v2::variables::add_to_linker)?;
-        ctx.link_bindings(spin_world::wasi::config::store::add_to_linker)?;
+    fn init<C>(&mut self, ctx: &mut C) -> anyhow::Result<()>
+    where
+        C: InitContext<Self>,
+    {
+        ctx.link_bindings(spin_world::v1::config::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::v2::variables::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::wasi::config::store::add_to_linker::<_, FactorData<Self>>)?;
         Ok(())
     }
 

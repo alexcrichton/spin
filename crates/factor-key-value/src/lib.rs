@@ -9,7 +9,8 @@ use std::{
 
 use anyhow::ensure;
 use spin_factors::{
-    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
+    ConfigureAppContext, Factor, FactorData, FactorInstanceBuilder, InitContext, PrepareContext,
+    RuntimeFactors,
 };
 use spin_locked_app::MetadataKey;
 
@@ -38,12 +39,17 @@ impl Factor for KeyValueFactor {
     type AppState = AppState;
     type InstanceBuilder = InstanceBuilder;
 
-    fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
-        ctx.link_bindings(spin_world::v1::key_value::add_to_linker)?;
-        ctx.link_bindings(spin_world::v2::key_value::add_to_linker)?;
-        ctx.link_bindings(spin_world::wasi::keyvalue::store::add_to_linker)?;
-        ctx.link_bindings(spin_world::wasi::keyvalue::batch::add_to_linker)?;
-        ctx.link_bindings(spin_world::wasi::keyvalue::atomics::add_to_linker)?;
+    fn init<C>(&mut self, ctx: &mut C) -> anyhow::Result<()>
+    where
+        C: InitContext<Self>,
+    {
+        ctx.link_bindings(spin_world::v1::key_value::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::v2::key_value::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::wasi::keyvalue::store::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(spin_world::wasi::keyvalue::batch::add_to_linker::<_, FactorData<Self>>)?;
+        ctx.link_bindings(
+            spin_world::wasi::keyvalue::atomics::add_to_linker::<_, FactorData<Self>>,
+        )?;
         Ok(())
     }
 

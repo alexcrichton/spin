@@ -1,6 +1,3 @@
-use std::future::Future;
-use std::net::SocketAddr;
-
 use anyhow::{anyhow, Context, Result};
 use futures::{channel::mpsc, FutureExt, SinkExt};
 use http::{HeaderName, HeaderValue};
@@ -13,11 +10,13 @@ use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::InstanceState;
 use spin_http::routes::RouteMatch;
+use std::future::Future;
+use std::io::Cursor;
+use std::net::SocketAddr;
 use tracing::{instrument, Level};
 use wasi_http_draft::{wasi::http::types, WasiHttpView};
 use wasmtime::component::{
-    self, ErrorContext, FutureReader, FutureWriter, PromisesUnordered, Resource, StreamReader,
-    StreamWriter,
+    self, ErrorContext, FutureReader, FutureWriter, Resource, StreamReader, StreamWriter,
 };
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode,
@@ -27,6 +26,8 @@ use wasmtime_wasi_http::{
 use crate::{headers::prepare_request_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
 type Store<T> = spin_core::Store<InstanceState<T, ()>>;
+
+type PromisesUnordered<T> = futures::stream::FuturesUnordered<Box<dyn Future<Output = Result<T>>>>;
 
 mod proxy {
     wasmtime::component::bindgen!({
@@ -70,7 +71,7 @@ impl HttpExecutor for Wasip3HttpExecutor {
     async fn execute<F: RuntimeFactors>(
         &self,
         instance_builder: TriggerInstanceBuilder<'_, F>,
-        route_match: &RouteMatch,
+        route_match: &RouteMatch<'_, '_>,
         mut request: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -94,9 +95,9 @@ impl HttpExecutor for Wasip3HttpExecutor {
                 Some((name, value))
             }));
 
-        let (request_body_tx, request_body_rx) = component::stream(&mut store)?;
+        let (request_body_tx, request_body_rx) = instance.stream(&mut store)?;
 
-        let (request_trailers_tx, request_trailers_rx) = component::future(&mut store)?;
+        let (request_trailers_tx, request_trailers_rx) = instance.future(&mut store)?;
 
         let mut wasi_http =
             spin_factor_outbound_http::OutboundHttpFactor::get_wasi_http_draft_impl(
@@ -129,10 +130,10 @@ impl HttpExecutor for Wasip3HttpExecutor {
                     .map(|(k, v)| (k.as_str().into(), v.as_bytes().into()))
                     .collect(),
             ),
-            body: Some(types::Body {
+            body: types::Body {
                 stream: Some(request_body_rx),
                 trailers: Some(request_trailers_rx),
-            }),
+            },
             options: None,
         })?;
 
@@ -167,7 +168,7 @@ async fn read<F: RuntimeFactors>(
     store: &mut Store<F::InstanceState>,
     promises: &mut PromisesUnordered<Event>,
     mut body: Body,
-    body_tx: StreamWriter<Bytes>,
+    body_tx: StreamWriter<Cursor<Bytes>>,
     trailers_tx: FutureWriter<Resource<types::Fields>>,
 ) -> Result<()> {
     if let Some(frame) = body.frame().await {

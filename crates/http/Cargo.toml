@@ -19,6 +19,7 @@ tracing = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
+wasi-http-draft = { workspace = true }
 
 [dev-dependencies]
 toml = { workspace = true }

@@ -57,15 +57,17 @@ use wasi::http::types::{
 use wasi::io::poll::Pollable;
 use wasi::io::streams::{Error as IoError, InputStream, OutputStream};
 
-use crate::wasi::WasiHttpImplInner;
+use crate::wasi::{HasHttpP2, WasiHttpImplInner};
 
-pub(crate) fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
+pub(crate) fn add_to_linker<T>(
+    linker: &mut Linker<T>,
+    closure: fn(&mut T) -> WasiHttpImpl<WasiHttpImplInner<'_>>,
+) -> Result<()>
 where
-    T: Send,
-    F: Fn(&mut T) -> WasiHttpImpl<WasiHttpImplInner> + Send + Sync + Copy + 'static,
+    T: Send + 'static,
 {
-    wasi::http::types::add_to_linker_get_host(linker, closure)?;
-    wasi::http::outgoing_handler::add_to_linker_get_host(linker, closure)?;
+    wasi::http::types::add_to_linker::<_, HasHttpP2>(linker, closure)?;
+    wasi::http::outgoing_handler::add_to_linker::<_, HasHttpP2>(linker, closure)?;
     Ok(())
 }
 

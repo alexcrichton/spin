@@ -24,6 +24,7 @@ wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
 wasi-http-draft = { path = "../../http" }
 futures = { workspace = true }
+bytes = { workspace = true }
 
 [dev-dependencies]
 spin-factor-variables = { path = "../factor-variables" }
