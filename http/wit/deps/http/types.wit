@@ -25,7 +25,7 @@ interface types {
   }
 
   /// These cases are inspired by the IANA HTTP Proxy Error Types:
-  ///   <https://www.iana.org/assignments/http-proxy-status/http-proxy-status.xhtml#table-http-proxy-error-types>
+  ///   https://www.iana.org/assignments/http-proxy-status/http-proxy-status.xhtml#table-http-proxy-error-types
   variant error-code {
     DNS-timeout,
     DNS-error(DNS-error-payload),
@@ -91,15 +91,27 @@ interface types {
     field-size: option<u32>
   }
 
+  /// Attempts to extract a http-related `error-code` from the stream `error`
+  /// provided.
+  ///
+  /// Stream operations may fail with a stream `error` with more information
+  /// about the operation that failed. This `error` can be passed to this
+  /// function to see if there's http-related information about the error to
+  /// return.
+  ///
+  /// Note that this function is fallible because not all stream errors are
+  /// http-related errors.
+  http-error-code: func(err: error-context) -> option<error-code>;
+
   /// This type enumerates the different kinds of errors that may occur when
   /// setting or appending to a `fields` resource.
   variant header-error {
-    /// This error indicates that a `field-name` or `field-value` was
+    /// This error indicates that a `field-key` or `field-value` was
     /// syntactically invalid when used with an operation that sets headers in a
     /// `fields`.
     invalid-syntax,
 
-    /// This error indicates that a forbidden `field-name` was used when trying
+    /// This error indicates that a forbidden `field-key` was used when trying
     /// to set a header in a `fields`.
     forbidden,
 
@@ -119,11 +131,8 @@ interface types {
     immutable,
   }
 
-  /// Field names are always strings.
-  ///
-  /// Field names should always be treated as case insensitive by the `fields`
-  /// resource for the purposes of equality checking.
-  type field-name = string;
+  /// Field keys are always strings.
+  type field-key = string;
 
   /// Field values should always be ASCII strings. However, in
   /// reality, HTTP implementations often have to interpret malformed values,
@@ -140,11 +149,6 @@ interface types {
   /// `request.headers`) might be be immutable. In an immutable fields, the
   /// `set`, `append`, and `delete` operations will fail with
   /// `header-error.immutable`.
-  ///
-  /// A `fields` resource should store `field-name`s and `field-value`s in their
-  /// original casing used to construct or mutate the `fields` resource. The `fields`
-  /// resource should use that original casing when serializing the fields for
-  /// transport or when returning them from a method.
   resource fields {
 
     /// Construct an empty HTTP Fields.
@@ -156,69 +160,60 @@ interface types {
     ///
     /// The resulting `fields` is mutable.
     ///
-    /// The list represents each name-value pair in the Fields. Names
+    /// The list represents each key-value pair in the Fields. Keys
     /// which have multiple values are represented by multiple entries in this
-    /// list with the same name.
+    /// list with the same key.
     ///
-    /// The tuple is a pair of the field name, represented as a string, and
-    /// Value, represented as a list of bytes. In a valid Fields, all names
+    /// The tuple is a pair of the field key, represented as a string, and
+    /// Value, represented as a list of bytes. In a valid Fields, all keys
     /// and values are valid UTF-8 strings. However, values are not always
     /// well-formed, so they are represented as a raw list of bytes.
     ///
     /// An error result will be returned if any header or value was
     /// syntactically invalid, or if a header was forbidden.
     from-list: static func(
-      entries: list<tuple<field-name,field-value>>
+      entries: list<tuple<field-key,field-value>>
     ) -> result<fields, header-error>;
 
-    /// Get all of the values corresponding to a name. If the name is not present
-    /// in this `fields`, an empty list is returned. However, if the name is
+    /// Get all of the values corresponding to a key. If the key is not present
+    /// in this `fields`, an empty list is returned. However, if the key is
     /// present but empty, this is represented by a list with one or more
     /// empty field-values present.
-    get: func(name: field-name) -> list<field-value>;
+    get: func(name: field-key) -> list<field-value>;
 
-    /// Returns `true` when the name is present in this `fields`. If the name is
+    /// Returns `true` when the key is present in this `fields`. If the key is
     /// syntactically invalid, `false` is returned.
-    has: func(name: field-name) -> bool;
+    has: func(name: field-key) -> bool;
 
-    /// Set all of the values for a name. Clears any existing values for that
-    /// name, if they have been set.
+    /// Set all of the values for a key. Clears any existing values for that
+    /// key, if they have been set.
     ///
     /// Fails with `header-error.immutable` if the `fields` are immutable.
-    set: func(name: field-name, value: list<field-value>) -> result<_, header-error>;
+    set: func(name: field-key, value: list<field-value>) -> result<_, header-error>;
 
-    /// Delete all values for a name. Does nothing if no values for the name
+    /// Delete all values for a key. Does nothing if no values for the key
     /// exist.
     ///
-    /// Fails with `header-error.immutable` if the `fields` are immutable.
-    delete: func(name: field-name) -> result<_, header-error>;
-
-    /// Delete all values for a name. Does nothing if no values for the name
-    /// exist.
-    ///
-    /// Returns all values previously corresponding to the name, if any.
+    /// Returns any values previously corresponding to the key.
     ///
     /// Fails with `header-error.immutable` if the `fields` are immutable.
-    get-and-delete: func(name: field-name) -> result<list<field-value>, header-error>;
+    delete: func(name: field-key) -> result<list<field-value>, header-error>;
 
-    /// Append a value for a name. Does not change or delete any existing
-    /// values for that name.
+    /// Append a value for a key. Does not change or delete any existing
+    /// values for that key.
     ///
     /// Fails with `header-error.immutable` if the `fields` are immutable.
-    append: func(name: field-name, value: field-value) -> result<_, header-error>;
+    append: func(name: field-key, value: field-value) -> result<_, header-error>;
 
-    /// Retrieve the full set of names and values in the Fields. Like the
-    /// constructor, the list represents each name-value pair.
+    /// Retrieve the full set of keys and values in the Fields. Like the
+    /// constructor, the list represents each key-value pair.
     ///
-    /// The outer list represents each name-value pair in the Fields. Names
+    /// The outer list represents each key-value pair in the Fields. Keys
     /// which have multiple values are represented by multiple entries in this
-    /// list with the same name.
-    ///
-    /// The names and values are always returned in the original casing and in
-    /// the order in which they will be serialized for transport.
-    entries: func() -> list<tuple<field-name,field-value>>;
+    /// list with the same key.
+    entries: func() -> list<tuple<field-key,field-value>>;
 
-    /// Make a deep copy of the Fields. Equivalent in behavior to calling the
+    /// Make a deep copy of the Fields. Equivelant in behavior to calling the
     /// `fields` constructor on the return value of `entries`. The resulting
     /// `fields` is mutable.
     clone: func() -> fields;
@@ -240,16 +235,16 @@ interface types {
   /// trailers at any given time.
   resource body {
 
-    /// Construct a new `body` with the specified stream.
+    /// Construct a new `body` with the specified stream and trailers.
     ///
     /// This function returns a future, which will resolve
     /// to an error code if transmitting stream data fails.
     ///
     /// The returned future resolves to success once body stream
     /// is fully transmitted.
-    new: static func(
+    constructor(
       %stream: stream<u8>,
-    ) -> tuple<body, future<result<_, error-code>>>;
+    );
 
     /// Construct a new `body` with the specified stream and trailers.
     ///
@@ -261,22 +256,17 @@ interface types {
     new-with-trailers: static func(
       %stream: stream<u8>,
       trailers: future<trailers>
-    ) -> tuple<body, future<result<_, error-code>>>;
+    ) -> body;
 
     /// Returns the contents of the body, as a stream of bytes.
     ///
     /// This function may be called multiple times as long as any `stream`s
     /// returned by previous calls have been dropped first.
-    ///
-    /// On success, this function returns a stream and a future, which will resolve
-    /// to an error code if receiving data from stream fails.
-    /// The returned future resolves to success if body is closed.
-    %stream: func() -> result<tuple<stream<u8>, future<result<_, error-code>>>>;
+    %stream: func() -> result<stream<u8>>;
 
-    /// Takes ownership of `body`, and returns an unresolved optional `trailers`.
-    ///
-    /// This function will trap if a `stream` child is still alive.
-    finish: static func(this: body) -> future<option<trailers>>;
+    /// Takes ownership of `body`, and returns a `trailers`.  This function will
+    /// trap if a `stream` child is still alive.
+    finish: static func(this: body) -> future<trailers>;
   }
 
   /// Represents an HTTP Request.
@@ -286,8 +276,9 @@ interface types {
     /// `none` values for `path-with-query`, `scheme`, and `authority`.
     ///
     /// * `headers` is the HTTP Headers for the Response.
-    /// * `body` is the optional contents of the body, possibly including
-    ///   trailers.
+    /// * `body` is the contents of the body, as a stream of bytes.
+    /// * `trailers` is an optional `future` which resolves to the HTTP Trailers
+    ///   for the Response.
     /// * `options` is optional `request-options` to be used if the request is
     ///   sent over a network connection.
     ///
@@ -298,7 +289,7 @@ interface types {
     /// to reject invalid constructions of `request`.
     constructor(
       headers: headers,
-      body: option<body>,
+      body: body,
       options: option<request-options>
     );
 
@@ -324,14 +315,14 @@ interface types {
     /// string given is not a syntactically valid uri scheme.
     set-scheme: func(scheme: option<scheme>) -> result;
 
-    /// Get the authority of the Request's target URI. A value of `none` may be used
-    /// with Related Schemes which do not require an authority. The HTTP and
+    /// Get the HTTP Authority for the Request. A value of `none` may be used
+    /// with Related Schemes which do not require an Authority. The HTTP and
     /// HTTPS schemes always require an authority.
     authority: func() -> option<string>;
-    /// Set the authority of the Request's target URI. A value of `none` may be used
-    /// with Related Schemes which do not require an authority. The HTTP and
+    /// Set the HTTP Authority for the Request. A value of `none` may be used
+    /// with Related Schemes which do not require an Authority. The HTTP and
     /// HTTPS schemes always require an authority. Fails if the string given is
-    /// not a syntactically valid URI authority.
+    /// not a syntactically valid uri authority.
     set-authority: func(authority: option<string>) -> result;
 
     /// Get the `request-options` to be associated with this request
@@ -340,7 +331,7 @@ interface types {
     /// will fail if invoked.
     ///
     /// This `request-options` resource is a child: it must be dropped before
-    /// the parent `request` is dropped, or its ownership is transferred to
+    /// the parent `request` is dropped, or its ownership is transfered to
     /// another component by e.g. `handler.handle`.
     options: func() -> option<request-options>;
 
@@ -350,20 +341,19 @@ interface types {
     /// `delete` operations will fail with `header-error.immutable`.
     ///
     /// This headers resource is a child: it must be dropped before the parent
-    /// `request` is dropped, or its ownership is transferred to another
+    /// `request` is dropped, or its ownership is transfered to another
     /// component by e.g. `handler.handle`.
     headers: func() -> headers;
 
-    /// Get the body associated with the Request, if any.
+    /// Get the body associated with the Request.
     ///
     /// This body resource is a child: it must be dropped before the parent
-    /// `request` is dropped, or its ownership is transferred to another
+    /// `request` is dropped, or its ownership is transfered to another
     /// component by e.g. `handler.handle`.
-    body: func() -> option<body>;
+    body: func() -> body;
 
-    /// Takes ownership of the `request` and returns the `headers` and `body`,
-    /// if any.
-    into-parts: static func(this: request) -> tuple<headers, option<body>>;
+    /// Takes ownership of the `request` and returns the `headers` and `body`.
+    into-parts: static func(this: request) -> tuple<headers, body>;
   }
 
   /// Parameters for making an HTTP Request. Each of these parameters is
@@ -413,11 +403,12 @@ interface types {
     /// `set-status-code` method.
     ///
     /// * `headers` is the HTTP Headers for the Response.
-    /// * `body` is the optional contents of the body, possibly including
-    ///   trailers.
+    /// * `body` is the contents of the body, as a stream of bytes.
+    /// * `trailers` is an optional `future` which resolves to the HTTP Trailers
+    ///   for the Response.
     constructor(
       headers: headers,
-      body: option<body>,
+      body: body,
     );
 
     /// Get the HTTP Status Code for the Response.
@@ -433,19 +424,18 @@ interface types {
     /// `delete` operations will fail with `header-error.immutable`.
     ///
     /// This headers resource is a child: it must be dropped before the parent
-    /// `response` is dropped, or its ownership is transferred to another
+    /// `response` is dropped, or its ownership is transfered to another
     /// component by e.g. `handler.handle`.
     headers: func() -> headers;
 
-    /// Get the body associated with the Response, if any.
+    /// Get the body associated with the Response.
     ///
     /// This body resource is a child: it must be dropped before the parent
-    /// `response` is dropped, or its ownership is transferred to another
+    /// `response` is dropped, or its ownership is transfered to another
     /// component by e.g. `handler.handle`.
-    body: func() -> option<body>;
+    body: func() -> body;
 
-    /// Takes ownership of the `response` and returns the `headers` and `body`,
-    /// if any.
-    into-parts: static func(this: response) -> tuple<headers, option<body>>;
+    /// Takes ownership of the `response` and returns the `headers` and `body`.
+    into-parts: static func(this: response) -> tuple<headers, body>;
   }
 }
