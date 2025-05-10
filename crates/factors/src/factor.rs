@@ -77,13 +77,13 @@ pub(crate) type GetDataWithTableFn<T, U> =
 
 /// An InitContext is passed to [`Factor::init`], giving access to the global
 /// common [`wasmtime::component::Linker`].
-pub struct InitContext<'a, T, U: Factor> {
+pub struct InitContext<'a, T: 'static, U: Factor> {
     pub(crate) linker: &'a mut Linker<T>,
     pub(crate) get_data: GetDataFn<T, U>,
     pub(crate) get_data_with_table: GetDataWithTableFn<T, U>,
 }
 
-impl<'a, T, U: Factor> InitContext<'a, T, U> {
+impl<'a, T: 'static, U: Factor> InitContext<'a, T, U> {
     #[doc(hidden)]
     pub fn new(
         linker: &'a mut Linker<T>,

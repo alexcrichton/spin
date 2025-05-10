@@ -38,10 +38,10 @@ impl HttpExecutor for SpinHttpExecutor {
         // Expects here are safe since we have already checked that this
         // instance exists
         let inbound_http = instance
-            .get_export(&mut store, None, "fermyon:spin/inbound-http")
+            .get_export_index(&mut store, None, "fermyon:spin/inbound-http")
             .expect("no fermyon:spin/inbound-http found");
         let handle_request = instance
-            .get_export(&mut store, Some(&inbound_http), "handle-request")
+            .get_export_index(&mut store, Some(&inbound_http), "handle-request")
             .expect("no handle-request found");
         let func = instance.get_typed_func::<(http_types::Request,), (http_types::Response,)>(
             &mut store,

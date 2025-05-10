@@ -12,7 +12,7 @@ use spin_factors::{
 ///
 /// It is generic over the executor's [`RuntimeFactors`]. Additionally, it
 /// holds any other per-instance state needed by the caller.
-pub struct FactorsExecutor<T: RuntimeFactors, U = ()> {
+pub struct FactorsExecutor<T: RuntimeFactors, U: 'static = ()> {
     core_engine: spin_core::Engine<InstanceState<T::InstanceState, U>>,
     factors: T,
     hooks: Vec<Box<dyn ExecutorHooks<T, U>>>,
@@ -127,7 +127,7 @@ type InstancePre<T, U> =
 ///
 /// It is generic over the executor's [`RuntimeFactors`] and any ad-hoc additional
 /// per-instance state needed by the caller.
-pub struct FactorsExecutorApp<T: RuntimeFactors, U> {
+pub struct FactorsExecutorApp<T: RuntimeFactors, U: 'static> {
     executor: Arc<FactorsExecutor<T, U>>,
     configured_app: ConfiguredApp<T>,
     // Maps component IDs -> InstancePres
@@ -148,11 +148,13 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
     }
 
     pub fn get_component(&self, component_id: &str) -> anyhow::Result<&Component> {
-        let instance_pre = self
-            .component_instance_pres
+        Ok(self.get_instance_pre(component_id)?.component())
+    }
+
+    pub fn get_instance_pre(&self, component_id: &str) -> anyhow::Result<&InstancePre<T, U>> {
+        self.component_instance_pres
             .get(component_id)
-            .with_context(|| format!("no such component {component_id:?}"))?;
-        Ok(instance_pre.component())
+            .with_context(|| format!("no such component {component_id:?}"))
     }
 
     /// Returns an instance builder for the given component ID.
@@ -192,7 +194,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
 ///
 /// It is generic over the executor's [`RuntimeFactors`] and any ad-hoc additional
 /// per-instance state needed by the caller.
-pub struct FactorsInstanceBuilder<'a, F: RuntimeFactors, U> {
+pub struct FactorsInstanceBuilder<'a, F: RuntimeFactors, U: 'static> {
     app_component: AppComponent<'a>,
     store_builder: spin_core::StoreBuilder,
     factor_builders: F::InstanceBuilders,
@@ -294,7 +296,7 @@ impl<T, U> InstanceState<T, U> {
     }
 }
 
-impl<T, U> spin_core::AsState for InstanceState<T, U> {
+impl<T, U: 'static> spin_core::AsState for InstanceState<T, U> {
     fn as_state(&mut self) -> &mut spin_core::State {
         &mut self.core
     }

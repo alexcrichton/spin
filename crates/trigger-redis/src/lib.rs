@@ -210,7 +210,8 @@ impl<F: RuntimeFactors> Subscriber<F> {
             .instantiate(())
             .await?;
 
-        let guest_indices = inbound_redis::GuestIndices::new_instance(&mut store, &instance)?;
+        let pre = instance.instance_pre(&mut store);
+        let guest_indices = inbound_redis::GuestIndices::new(&pre)?;
         let guest = guest_indices.load(&mut store, &instance)?;
 
         let payload = msg.get_payload_bytes().to_vec();
