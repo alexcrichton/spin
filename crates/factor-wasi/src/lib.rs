@@ -15,8 +15,8 @@ use std::{
 
 use io::{PipeReadStream, PipedWriteStream};
 use spin_factors::{
-    AppComponent, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
-    RuntimeFactorsInstanceState, anyhow,
+    anyhow, AppComponent, Factor, FactorField, FactorInstanceBuilder, InitContext, PrepareContext,
+    RuntimeFactors, RuntimeFactorsInstanceState,
 };
 use wasmtime::component::HasData;
 use wasmtime_wasi::cli::{StdinStream, StdoutStream, WasiCli, WasiCliCtxView};
@@ -28,7 +28,7 @@ use wasmtime_wasi::{FsPerms, ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView
 
 pub use sockets::{SocketPermitState, SpinSockets, SpinSocketsView};
 pub use wasi_2023_10_18::convert_result;
-pub use wasi_2026_03_15::{FutureReaderExt, StreamReaderExt, reborrow};
+pub use wasi_2026_03_15::{reborrow, FutureReaderExt, StreamReaderExt};
 pub use wasmtime_wasi::sockets::SocketAddrUse;
 
 pub struct WasiFactor {
@@ -133,14 +133,6 @@ trait InitContextExt: InitContext<WasiFactor> {
         let (state, table) = Self::get_data_with_table(data);
         WasiFilesystemCtxView {
             ctx: state.ctx.filesystem(),
-            table,
-        }
-    }
-
-    fn get_filesystem_named(data: &mut Self::StoreData, id: wasmtime_wasi::NamedId) -> WasiFilesystemCtxView<'_> {
-        let (state, table) = Self::get_data_with_table(data);
-        WasiFilesystemCtxView {
-            ctx: state.dependency_ctx.get_mut(&id).unwrap().filesystem(),
             table,
         }
     }
@@ -414,54 +406,26 @@ impl Factor for WasiFactor {
         &self,
         ctx: &mut T,
         component: &wasmtime::component::Component,
-    ) -> anyhow::Result<()>
-    {
+    ) -> anyhow::Result<()> {
         use wasmtime_wasi::p3;
 
-        // THE ALEX SAMPLE -----------------------------------------------------
-        // wasmtime_wasi::p3::filesystem::add_named_to_linker::<MyStoreState>(
-        //     &mut linker,
-        //     &component,
-        //     |_, name| {
-        //         let len = name_map.len();
-        //         Ok(NamedId(*name_map.entry(name.to_string()).or_insert(len)))
-        //     },
-        // )?;
-        // END THE ALEX SAMPLE -------------------------------------------------
-
-        // NO! T::StoreData is not WasiFilesystemNamedView - we would need a T::get_data_with_table
-        // or something to achieve one
-        // p3::filesystem::add_named_to_linker::<T::StoreData>(ctx.linker(), component, |_,_| Ok(wasmtime_wasi::NamedId(123)))?;
-
-        // // I feel like something like this should work but I can't figure out where to
-        // // get the store data from - host_getter provides us with an &mut T::StoreData
-        // // but we can't store that in the struct
-        // struct Wat<T: InitContext<WasiFactor> + Send + 'static> { ph: std::marker::PhantomData<T> }
-        // impl<T: InitContext<WasiFactor> + Send + 'static> wasmtime_wasi::WasiNamedView for Wat<T> {
-        //     fn ctx(&mut self, id: wasmtime_wasi::NamedId) -> WasiCtxView<'_> {
-        //         let (st, table) = T::get_data_with_table(store);
-        //         let ctx = st.dependency_ctx.get_mut(&id).unwrap();
-        //         WasiCtxView {
-        //             ctx,
-        //             table,
-        //         }
-        //     }
-        // }
-
-        p3::bindings::named_imports::wasi::filesystem::types::add_to_linker::<_, wasmtime_wasi::filesystem::WasiFilesystemNamed<InstanceState>>(
+        p3::bindings::named_imports::wasi::filesystem::types::add_to_linker::<
+            _,
+            wasmtime_wasi::filesystem::WasiFilesystemNamed<_>,
+        >(
             ctx.linker(),
             component,
             |_name| Ok(wasmtime_wasi::NamedId(123)),
-            |x| {
-                let (st, tbl) = T::get_data_with_table(x);
-                wasmtime_wasi::WasiCtxNamedView(T::get_data(x))
-            },
+            |x| wasmtime_wasi::WasiCtxNamedView(WasiStoreDataWrapper::<T::Field>::from_mut(x)),
         )?;
-        p3::bindings::named_imports::wasi::filesystem::preopens::add_to_linker::<_, wasmtime_wasi::filesystem::WasiFilesystemNamed<InstanceState>>(
+        p3::bindings::named_imports::wasi::filesystem::preopens::add_to_linker::<
+            _,
+            wasmtime_wasi::filesystem::WasiFilesystemNamed<_>,
+        >(
             ctx.linker(),
             component,
             |_name| Ok(wasmtime_wasi::NamedId(123)),
-            |x| wasmtime_wasi::WasiCtxNamedView(T::get_data(x)),
+            |x| wasmtime_wasi::WasiCtxNamedView(WasiStoreDataWrapper::<T::Field>::from_mut(x)),
         )?;
 
         Ok(())
@@ -483,11 +447,13 @@ impl Factor for WasiFactor {
         // for (dep_name, dep) in &ctx.app_component().locked.dependencies {
         //     let mut dep_wasi_ctx = WasiCtxBuilder::new();
         //     if let Some(caps) = dep.custom_capabilities() {
-                
+
         //     }
         //     dependency_capabilities.insert(dep_name.to_string(), dep_wasi_ctx);
         // }
-        let dependency_capabilities = SpinNamedWasiCtxBuilder { ids: Default::default() };
+        let dependency_capabilities = SpinNamedWasiCtxBuilder {
+            ids: Default::default(),
+        };
 
         let mut builder = InstanceBuilder {
             ctx: wasi_ctx,
@@ -632,7 +598,11 @@ impl FactorInstanceBuilder for InstanceBuilder {
         Ok(InstanceState {
             ctx: wasi_ctx.build(),
             socket_permit_state,
-            dependency_ctx: dependency_capabilities.ids.into_iter().map(|(id, mut builder)| (id, builder.build())).collect(),
+            dependency_ctx: dependency_capabilities
+                .ids
+                .into_iter()
+                .map(|(id, mut builder)| (id, builder.build()))
+                .collect(),
         })
     }
 }
@@ -677,12 +647,33 @@ impl InstanceState {
     }
 }
 
-impl wasmtime_wasi::WasiNamedView for InstanceState {
+#[repr(transparent)]
+struct WasiStoreDataWrapper<T>
+where
+    T: FactorField<Factor = WasiFactor>,
+{
+    data: T::State,
+}
+
+impl<T> WasiStoreDataWrapper<T>
+where
+    T: FactorField<Factor = WasiFactor>,
+{
+    fn from_mut(data: &mut T::State) -> &mut Self {
+        // SAFETY: TODO (aka repr(transparent), one field, etc)
+        unsafe { &mut *(data as *mut T::State as *mut Self) }
+    }
+}
+
+impl<T> wasmtime_wasi::WasiNamedView for WasiStoreDataWrapper<T>
+where
+    T: FactorField<Factor = WasiFactor>,
+{
     fn ctx(&mut self, id: wasmtime_wasi::NamedId) -> WasiCtxView<'_> {
-        let wasi_ctx = self.dependency_ctx.get_mut(&id).unwrap();
+        let (st, table) = T::get(&mut self.data);
         WasiCtxView {
-            ctx: &mut wasi_ctx,
-            table: &mut some_table,
+            ctx: st.dependency_ctx.get_mut(&id).unwrap(),
+            table,
         }
     }
 }

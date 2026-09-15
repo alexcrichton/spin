@@ -1,6 +1,6 @@
 use wasmtime::component::{Linker, ResourceTable};
 
-use crate::{App, ConfiguredApp, Factor, factor::FactorInstanceState};
+use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor};
 
 /// A collection of `Factor`s that are initialized and configured together.
 ///
@@ -110,6 +110,6 @@ pub trait RuntimeFactorsInstanceState: AsInstanceState<Self> + Send + 'static {
     fn table_mut(&mut self) -> &mut ResourceTable;
 }
 
-pub trait AsInstanceState<T: RuntimeFactorsInstanceState + ?Sized> {
+pub trait AsInstanceState<T: ?Sized> {
     fn as_instance_state(&mut self) -> &mut T;
 }
